@@ -3,6 +3,7 @@ import sys
 from settings import *
 from menu import MainMenu
 from level import Level
+from menu import MainMenu, GameOverMenu
 
 class Game:
     def __init__(self):
@@ -11,12 +12,12 @@ class Game:
         pygame.display.set_caption("Últimos Rastros")
         self.clock = pygame.time.Clock()
         self.is_running = True
-        
         self.current_state = "MENU"
-        
         # Instanciando os componentes
         self.main_menu = MainMenu(self.screen)
+        self.game_over_menu = GameOverMenu(self.screen)
         self.level = Level(self.screen)
+        
 
     def run(self):
         while self.is_running:
@@ -33,35 +34,46 @@ class Game:
             if event.type == pygame.QUIT:
                 self.is_running = False
             
-            # Lógica de transição no Menu
             if self.current_state == "MENU":
                 action = self.main_menu.handle_event(event)
                 if action == "PLAY":
+                    self.level = Level(self.screen)
                     self.current_state = "GAMEPLAY"
                 elif action == "CREDITS":
-                    print("Tela de Créditos ainda será implementada!")
+                    print("Créditos: José Lucas Silva Souza")
                 elif action == "QUIT":
                     self.is_running = False
                     
-            # Lógica de transição na Gameplay
             elif self.current_state == "GAMEPLAY":
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                    self.current_state = "MENU"
+            
+            elif self.current_state == "GAMEOVER":
+                action = self.game_over_menu.handle_event(event)
+                if action == "RETRY":
+                    self.level = Level(self.screen) # Recria a fase do zero
+                    self.current_state = "GAMEPLAY"
+                elif action == "MENU":
                     self.current_state = "MENU"
 
     def update(self):
         if self.current_state == "MENU":
             self.main_menu.update()
-        elif self.current_state == "GAMEPLAY":
-            pass
-
+        elif self.current_state == "GAMEOVER":
+            self.game_over_menu.update()
     def draw(self):
         if self.current_state == "MENU":
             self.main_menu.draw()
-            pygame.display.flip()
             
         elif self.current_state == "GAMEPLAY":
-            self.level.run() 
-            pygame.display.flip()
+            game_status = self.level.run() 
+            if game_status == "GAMEOVER":
+                self.current_state = "GAMEOVER"
+                
+        elif self.current_state == "GAMEOVER":
+            self.game_over_menu.draw()
+            
+        pygame.display.flip()
 
 if __name__ == "__main__":
     game = Game()

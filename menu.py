@@ -47,3 +47,43 @@ class MainMenu:
         self.btn_play.draw(self.screen)
         self.btn_credits.draw(self.screen)
         self.btn_quit.draw(self.screen)
+
+class GameOverMenu:
+    def __init__(self, screen):
+        self.screen = screen
+        self.font_title = pygame.font.Font(None, 72)
+        self.font_button = pygame.font.Font(None, 36)
+
+        # Configuração dos botões
+        btn_width = 250
+        btn_height = 50
+        center_x = (SCREEN_WIDTH // 2) - (btn_width // 2)
+
+        # O botão exigido pelo GDD
+        self.btn_retry = Button(center_x, 300, btn_width, btn_height, "Tentar Novamente", self.font_button)
+        self.btn_menu = Button(center_x, 370, btn_width, btn_height, "Menu Principal", self.font_button)
+
+    def update(self):
+        mouse_pos = pygame.mouse.get_pos()
+        self.btn_retry.update(mouse_pos)
+        self.btn_menu.update(mouse_pos)
+
+    def handle_event(self, event):
+        if self.btn_retry.is_clicked(event):
+            return "RETRY"
+        if self.btn_menu.is_clicked(event):
+            return "MENU"
+        return None
+
+    def draw(self):
+        # Fundo avermelhado escuro para indicar derrota
+        self.screen.fill((50, 15, 15)) 
+        
+        # Título
+        title_text = self.font_title.render("A Floresta Esqueceu...", True, (255, 100, 100))
+        title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, 200))
+        self.screen.blit(title_text, title_rect)
+
+        # Botões
+        self.btn_retry.draw(self.screen)
+        self.btn_menu.draw(self.screen)

@@ -12,7 +12,7 @@ LEVEL_MAP = [
     '                                                XXX         ',
     '                              XXX                           ',
     '                 XXX                                        ',
-    'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
+    'XXXXXXXXX   XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
 ]
 
 class Level:
@@ -82,19 +82,27 @@ class Level:
                 elif player.direction.y < 0: 
                     player.rect.top = sprite.rect.bottom
                     player.direction.y = 0
+    
+    def check_death(self):
+        """Verifica se o jogador caiu no buraco (passou do fundo da tela)."""
+        if self.player.sprite.rect.top > SCREEN_HEIGHT:
+            return True
+        return False
 
     def run(self):
         self.display_surface.fill((30, 80, 40))
         
-        # Atualiza a posição dos blocos com base na câmera e desenha
         self.tiles.update(self.world_shift)
         self.tiles.draw(self.display_surface)
         
-        # Calcula a câmera ANTES de resolver a colisão do jogador
         self.scroll_x()
         
-        # Atualiza o jogador
         self.player.update()
         self.horizontal_movement_collision()
         self.vertical_movement_collision()
         self.player.draw(self.display_surface)
+        
+        if self.check_death():
+            return "GAMEOVER"
+        
+        return None

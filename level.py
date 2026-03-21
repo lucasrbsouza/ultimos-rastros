@@ -1,6 +1,6 @@
 import pygame
 from settings import *
-from sprites import Tile, Memory
+from sprites import Tile, Memory, Obstacle
 from player import Player
 from ui import HUD
 
@@ -12,7 +12,7 @@ LEVEL_MAP = [
     '       C          XXX                                       ',
     '                        XXX                        XXX         ',
     '                              XXX                           ',
-    '                 XXX                     M                  ',
+    '                 XXX          O           M                O  ',
     'XXXXXXXXX   XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
 ]
 
@@ -22,7 +22,8 @@ class Level:
         
         self.tiles = pygame.sprite.Group()
         self.player = pygame.sprite.GroupSingle()
-        self.memories = pygame.sprite.Group() # Novo grupo para os coletáveis
+        self.memories = pygame.sprite.Group()
+        self.obstacles = pygame.sprite.Group()
         
         self.hud = HUD(self.display_surface) # Instanciando o HUD
         self.world_shift = 0 
@@ -44,6 +45,9 @@ class Level:
                 elif cell == 'M':
                     memory_sprite = Memory((x, y), TILE_SIZE)
                     self.memories.add(memory_sprite)
+                elif cell == 'O':
+                    obstacle_sprite = Obstacle((x, y), TILE_SIZE)
+                    self.obstacles.add(obstacle_sprite)
 
     def scroll_x(self):
         player = self.player.sprite
@@ -86,40 +90,49 @@ class Level:
                     player.direction.y = 0
 
     def check_collectibles(self):
-        """Verifica se o jogador encostou em alguma memória."""
         player = self.player.sprite
-        # O 'True' no final diz ao Pygame para deletar a memória da tela automaticamente
         collided_memories = pygame.sprite.spritecollide(player, self.memories, True)
         if collided_memories:
-            # Aumenta o contador do jogador para cada memória coletada neste frame
             player.memories += len(collided_memories)
 
+    def check_damage(self):
+        """Verifica colisão com obstáculos e aplica dano."""
+        player = self.player.sprite
+        # O 'False' significa que o obstáculo NÃO some ao encostar
+        if pygame.sprite.spritecollide(player, self.obstacles, False):
+            player.take_damage(1)
+
     def check_death(self):
-        if self.player.sprite.rect.top > SCREEN_HEIGHT:
+        """Morre se cair no buraco OU se a vida zerar."""
+        if self.player.sprite.rect.top > SCREEN_HEIGHT or self.player.sprite.current_health <= 0:
             return True
         return False
 
     def run(self):
         self.display_surface.fill((30, 80, 40))
         
-        # Desenha o cenário e as memórias
+        # Desenha cenário, memórias e obstáculos
         self.tiles.update(self.world_shift)
         self.tiles.draw(self.display_surface)
         
         self.memories.update(self.world_shift)
         self.memories.draw(self.display_surface)
         
+        self.obstacles.update(self.world_shift)
+        self.obstacles.draw(self.display_surface)
+        
         self.scroll_x()
         
-        # Atualiza o jogador e colisões
         self.player.update()
         self.horizontal_movement_collision()
         self.vertical_movement_collision()
-        self.check_collectibles() # Checa a coleta depois de mover
+        
+        # Checagens de interação
+        self.check_collectibles()
+        self.check_damage()
         
         self.player.draw(self.display_surface)
         
-        # Desenha a Interface por último (para ficar por cima de tudo)
         self.hud.show_health(self.player.sprite.current_health, self.player.sprite.max_health)
         self.hud.show_memories(self.player.sprite.memories)
         

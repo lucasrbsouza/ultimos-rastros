@@ -26,3 +26,15 @@ class Memory(pygame.sprite.Sprite):
     def update(self, x_shift):
         """Move o item junto com a câmera do cenário."""
         self.rect.x += x_shift
+
+class Obstacle(pygame.sprite.Sprite):
+    def __init__(self, pos, size):
+        super().__init__()
+        # Um bloco roxo para sinalizar perigo
+        self.image = pygame.Surface((size, size))
+        self.image.fill((150, 0, 150)) 
+        self.rect = self.image.get_rect(topleft=pos)
+
+    def update(self, x_shift):
+        """Move o obstáculo junto com a câmera."""
+        self.rect.x += x_shift

@@ -10,3 +10,19 @@ class Tile(pygame.sprite.Sprite):
     def update(self, x_shift):
         """Move o bloco no eixo X para simular o movimento da câmera."""
         self.rect.x += x_shift
+
+class Memory(pygame.sprite.Sprite):
+    def __init__(self, pos, size):
+        super().__init__()
+        # Um quadrado menor e amarelo para representar a memória
+        self.image = pygame.Surface((size // 2, size // 2))
+        self.image.fill((255, 220, 50)) 
+        
+        # Centraliza o item no meio do bloco
+        center_x = pos[0] + (size // 2)
+        center_y = pos[1] + (size // 2)
+        self.rect = self.image.get_rect(center=(center_x, center_y))
+
+    def update(self, x_shift):
+        """Move o item junto com a câmera do cenário."""
+        self.rect.x += x_shift

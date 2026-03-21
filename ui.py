@@ -35,3 +35,23 @@ class Button:
         text_surf = self.font.render(self.text, True, self.color_text)
         text_rect = text_surf.get_rect(center=self.rect.center)
         screen.blit(text_surf, text_rect)
+
+class HUD:
+    def __init__(self, surface):
+        self.display_surface = surface
+        self.font = pygame.font.Font(None, 36)
+        
+    def show_health(self, current, maximum):
+        """Desenha a barra de vida no canto superior esquerdo."""
+        bar_width = 30
+        bar_height = 20
+        # Fundo vermelho (vida perdida)
+        pygame.draw.rect(self.display_surface, (150, 50, 50), (20, 20, maximum * bar_width, bar_height))
+        # Frente verde (vida atual)
+        pygame.draw.rect(self.display_surface, (50, 200, 80), (20, 20, current * bar_width, bar_height))
+        
+    def show_memories(self, amount):
+        """Desenha o contador de memórias abaixo da barra de vida."""
+        text_surf = self.font.render(f'Memórias: {amount}', True, COLOR_TEXT)
+        text_rect = text_surf.get_rect(topleft=(20, 50))
+        self.display_surface.blit(text_surf, text_rect)

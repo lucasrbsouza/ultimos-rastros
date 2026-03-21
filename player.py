@@ -14,6 +14,9 @@ class Player(pygame.sprite.Sprite):
         self.speed = 5
         self.gravity = 0.8
         self.jump_speed = -16
+        self.max_health = 5
+        self.current_health = 5
+        self.memories = 0
 
     def get_input(self):
         """Captura as teclas pressionadas pelo jogador."""

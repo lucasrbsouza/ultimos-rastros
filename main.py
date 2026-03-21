@@ -1,8 +1,8 @@
-# main.py
 import pygame
 import sys
 from settings import *
 from menu import MainMenu
+from level import Level
 
 class Game:
     def __init__(self):
@@ -12,10 +12,11 @@ class Game:
         self.clock = pygame.time.Clock()
         self.is_running = True
         
-        # Gerenciamento de Estados ("MENU", "GAMEPLAY", "GAMEOVER", "VICTORY")
         self.current_state = "MENU"
         
+        # Instanciando os componentes
         self.main_menu = MainMenu(self.screen)
+        self.level = Level(self.screen)
 
     def run(self):
         while self.is_running:
@@ -56,11 +57,11 @@ class Game:
     def draw(self):
         if self.current_state == "MENU":
             self.main_menu.draw()
-        elif self.current_state == "GAMEPLAY":
-            # Cor diferente para provar que mudamos de estado (uma simulação da floresta)
-            self.screen.fill((30, 80, 40)) 
+            pygame.display.flip()
             
-        pygame.display.flip()
+        elif self.current_state == "GAMEPLAY":
+            self.level.run() 
+            pygame.display.flip()
 
 if __name__ == "__main__":
     game = Game()

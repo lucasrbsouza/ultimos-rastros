@@ -4,24 +4,25 @@ from sprites import Tile
 from player import Player
 
 LEVEL_MAP = [
-    '                            ',
-    '                            ',
-    '                            ',
-    '                            ',
-    '       C                    ',
-    '                            ',
-    '                            ',
-    '                            ',
-    'XXXXXXXXXXXXXXXXXXXXXXXXXXXX'
+    '                                                            ',
+    '                                                            ',
+    '                                                            ',
+    '                                                            ',
+    '       C                                                    ',
+    '                                                XXX         ',
+    '                              XXX                           ',
+    '                 XXX                                        ',
+    'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
 ]
 
 class Level:
     def __init__(self, surface):
         self.display_surface = surface
-        
-        # Grupos de Sprites
         self.tiles = pygame.sprite.Group()
-        self.player = pygame.sprite.GroupSingle() # Grupo especial para conter apenas 1 sprite
+        self.player = pygame.sprite.GroupSingle()
+        
+        # Variável que controla a velocidade da câmera
+        self.world_shift = 0 
         
         self.setup_level(LEVEL_MAP)
 
@@ -38,47 +39,62 @@ class Level:
                     player_sprite = Player((x, y))
                     self.player.add(player_sprite)
 
+    def scroll_x(self):
+        """Lógica da Câmera: move o cenário se o jogador chegar perto das bordas."""
+        player = self.player.sprite
+        player_x = player.rect.centerx
+        direction_x = player.direction.x
+
+        # Define as margens (1/4 da tela) para a câmera começar a atuar
+        margin_left = SCREEN_WIDTH // 4
+        margin_right = SCREEN_WIDTH - (SCREEN_WIDTH // 4)
+
+        if player_x < margin_left and direction_x < 0:
+            self.world_shift = 5 # Empurra o mundo para a direita
+            player.speed = 0     # Trava a velocidade visual do jogador
+        elif player_x > margin_right and direction_x > 0:
+            self.world_shift = -5 # Empurra o mundo para a esquerda
+            player.speed = 0      # Trava a velocidade visual do jogador
+        else:
+            self.world_shift = 0  # Câmera parada
+            player.speed = 5      # Jogador anda normalmente
+
     def horizontal_movement_collision(self):
         player = self.player.sprite
-        
-        # Move o jogador no eixo X
         player.rect.x += player.direction.x * player.speed
 
-        # Checa colisão com todos os blocos do cenário
         for sprite in self.tiles.sprites():
             if sprite.rect.colliderect(player.rect):
-                if player.direction.x < 0: # Estava indo para a esquerda
+                if player.direction.x < 0: 
                     player.rect.left = sprite.rect.right
-                elif player.direction.x > 0: # Estava indo para a direita
+                elif player.direction.x > 0: 
                     player.rect.right = sprite.rect.left
 
     def vertical_movement_collision(self):
         player = self.player.sprite
-        
-        # Aplica a gravidade no eixo Y
         player.apply_gravity()
 
         for sprite in self.tiles.sprites():
             if sprite.rect.colliderect(player.rect):
-                if player.direction.y > 0: # Caindo (bateu no chão)
+                if player.direction.y > 0: 
                     player.rect.bottom = sprite.rect.top
-                    player.direction.y = 0 # Zera a gravidade para não atravessar o chão
-                elif player.direction.y < 0: # Pulando (bateu a cabeça no teto)
+                    player.direction.y = 0 
+                elif player.direction.y < 0: 
                     player.rect.top = sprite.rect.bottom
                     player.direction.y = 0
 
     def run(self):
         self.display_surface.fill((30, 80, 40))
         
-        # Desenha os blocos do cenário
+        # Atualiza a posição dos blocos com base na câmera e desenha
+        self.tiles.update(self.world_shift)
         self.tiles.draw(self.display_surface)
         
-        # Atualiza a intenção de movimento do jogador (Teclado)
-        self.player.update()
+        # Calcula a câmera ANTES de resolver a colisão do jogador
+        self.scroll_x()
         
-        # Aplica as colisões garantindo que ele não atravesse nada
+        # Atualiza o jogador
+        self.player.update()
         self.horizontal_movement_collision()
         self.vertical_movement_collision()
-        
-        # Desenha o jogador na tela
         self.player.draw(self.display_surface)

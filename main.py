@@ -15,7 +15,6 @@ class Game:
         # Gerenciamento de Estados ("MENU", "GAMEPLAY", "GAMEOVER", "VICTORY")
         self.current_state = "MENU"
         
-        # Instanciando os componentes visuais
         self.main_menu = MainMenu(self.screen)
 
     def run(self):
@@ -33,19 +32,25 @@ class Game:
             if event.type == pygame.QUIT:
                 self.is_running = False
             
-            # Lógica simples de transição de estado para teste
-            if event.type == pygame.KEYDOWN:
-                if self.current_state == "MENU" and event.key == pygame.K_RETURN:
+            # Lógica de transição no Menu
+            if self.current_state == "MENU":
+                action = self.main_menu.handle_event(event)
+                if action == "PLAY":
                     self.current_state = "GAMEPLAY"
-                elif self.current_state == "GAMEPLAY" and event.key == pygame.K_ESCAPE:
-                    # Permite voltar ao menu apertando ESC
+                elif action == "CREDITS":
+                    print("Tela de Créditos ainda será implementada!")
+                elif action == "QUIT":
+                    self.is_running = False
+                    
+            # Lógica de transição na Gameplay
+            elif self.current_state == "GAMEPLAY":
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                     self.current_state = "MENU"
 
     def update(self):
         if self.current_state == "MENU":
             self.main_menu.update()
         elif self.current_state == "GAMEPLAY":
-            # A lógica do Curupira e do cenário virá aqui
             pass
 
     def draw(self):

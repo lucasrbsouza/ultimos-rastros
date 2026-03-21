@@ -38,3 +38,16 @@ class Obstacle(pygame.sprite.Sprite):
     def update(self, x_shift):
         """Move o obstáculo junto com a câmera."""
         self.rect.x += x_shift
+
+class Goal(pygame.sprite.Sprite):
+    def __init__(self, pos, size):
+        super().__init__()
+        #a "Árvore" com altura de 2 blocos para ter destaque
+        self.image = pygame.Surface((size, size * 2))
+        self.image.fill((100, 255, 100)) # Um verde claro e brilhante
+        
+        self.rect = self.image.get_rect(topleft=(pos[0], pos[1] - size))
+
+    def update(self, x_shift):
+        """Move a árvore junto com a câmera."""
+        self.rect.x += x_shift

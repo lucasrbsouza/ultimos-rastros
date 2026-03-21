@@ -87,3 +87,40 @@ class GameOverMenu:
         # Botões
         self.btn_retry.draw(self.screen)
         self.btn_menu.draw(self.screen)
+
+class VictoryMenu:
+    def __init__(self, screen):
+        self.screen = screen
+        self.font_title = pygame.font.Font(None, 72)
+        self.font_button = pygame.font.Font(None, 36)
+
+        btn_width = 250
+        btn_height = 50
+        center_x = (SCREEN_WIDTH // 2) - (btn_width // 2)
+
+        self.btn_menu = Button(center_x, 300, btn_width, btn_height, "Menu Principal", self.font_button)
+        self.btn_quit = Button(center_x, 370, btn_width, btn_height, "Sair do Jogo", self.font_button)
+
+    def update(self):
+        mouse_pos = pygame.mouse.get_pos()
+        self.btn_menu.update(mouse_pos)
+        self.btn_quit.update(mouse_pos)
+
+    def handle_event(self, event):
+        if self.btn_menu.is_clicked(event):
+            return "MENU"
+        if self.btn_quit.is_clicked(event):
+            return "QUIT"
+        return None
+
+    def draw(self):
+        self.screen.fill((20, 50, 30)) 
+        
+        # Título
+        title_text = self.font_title.render("A Lenda Vive!", True, (150, 255, 150))
+        title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, 200))
+        self.screen.blit(title_text, title_rect)
+
+        # Botões
+        self.btn_menu.draw(self.screen)
+        self.btn_quit.draw(self.screen)

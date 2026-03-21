@@ -1,6 +1,6 @@
 import pygame
 from settings import *
-from sprites import Tile, Memory, Obstacle
+from sprites import Tile, Memory, Obstacle, Goal
 from player import Player
 from ui import HUD
 
@@ -12,8 +12,8 @@ LEVEL_MAP = [
     '       C          XXX                                       ',
     '                        XXX                        XXX         ',
     '                              XXX                           ',
-    '                 XXX          O           M                O  ',
-    'XXXXXXXXX   XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
+    '                 XXX          O           M                O    O    G  ',
+    'XXXXXXXXX   XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX   XXXXXX'
 ]
 
 class Level:
@@ -24,8 +24,9 @@ class Level:
         self.player = pygame.sprite.GroupSingle()
         self.memories = pygame.sprite.Group()
         self.obstacles = pygame.sprite.Group()
+        self.goal = pygame.sprite.GroupSingle() # <-- Novo grupo para o objetivo
         
-        self.hud = HUD(self.display_surface) # Instanciando o HUD
+        self.hud = HUD(self.display_surface)
         self.world_shift = 0 
         
         self.setup_level(LEVEL_MAP)
@@ -48,6 +49,9 @@ class Level:
                 elif cell == 'O':
                     obstacle_sprite = Obstacle((x, y), TILE_SIZE)
                     self.obstacles.add(obstacle_sprite)
+                elif cell == 'G': # <-- Criação do Objetivo
+                    goal_sprite = Goal((x, y), TILE_SIZE)
+                    self.goal.add(goal_sprite)
 
     def scroll_x(self):
         player = self.player.sprite
@@ -108,10 +112,15 @@ class Level:
             return True
         return False
 
+    def check_victory(self):
+        """Verifica se o jogador encostou no objetivo final."""
+        if pygame.sprite.spritecollide(self.player.sprite, self.goal, False):
+            return True
+        return False
+
     def run(self):
         self.display_surface.fill((30, 80, 40))
         
-        # Desenha cenário, memórias e obstáculos
         self.tiles.update(self.world_shift)
         self.tiles.draw(self.display_surface)
         
@@ -121,13 +130,15 @@ class Level:
         self.obstacles.update(self.world_shift)
         self.obstacles.draw(self.display_surface)
         
+        self.goal.update(self.world_shift)
+        self.goal.draw(self.display_surface)
+        
         self.scroll_x()
         
         self.player.update()
         self.horizontal_movement_collision()
         self.vertical_movement_collision()
         
-        # Checagens de interação
         self.check_collectibles()
         self.check_damage()
         
@@ -138,5 +149,8 @@ class Level:
         
         if self.check_death():
             return "GAMEOVER"
+            
+        if self.check_victory():
+            return "VICTORY"
         
         return None

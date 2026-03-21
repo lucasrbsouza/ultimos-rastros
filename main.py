@@ -3,7 +3,7 @@ import sys
 from settings import *
 from menu import MainMenu
 from level import Level
-from menu import MainMenu, GameOverMenu
+from menu import MainMenu, GameOverMenu, VictoryMenu
 
 class Game:
     def __init__(self):
@@ -16,6 +16,7 @@ class Game:
         # Instanciando os componentes
         self.main_menu = MainMenu(self.screen)
         self.game_over_menu = GameOverMenu(self.screen)
+        self.victory_menu = VictoryMenu(self.screen)
         self.level = Level(self.screen)
         
 
@@ -56,11 +57,22 @@ class Game:
                 elif action == "MENU":
                     self.current_state = "MENU"
 
+            elif self.current_state == "VICTORY":
+                action = self.victory_menu.handle_event(event)
+                if action == "MENU":
+                    self.current_state = "MENU"
+                elif action == "QUIT":
+                    self.is_running = False
+            
+
     def update(self):
         if self.current_state == "MENU":
             self.main_menu.update()
         elif self.current_state == "GAMEOVER":
             self.game_over_menu.update()
+        elif self.current_state == "VICTORY":
+            self.victory_menu.update()
+
     def draw(self):
         if self.current_state == "MENU":
             self.main_menu.draw()
@@ -69,9 +81,14 @@ class Game:
             game_status = self.level.run() 
             if game_status == "GAMEOVER":
                 self.current_state = "GAMEOVER"
+            elif game_status == "VICTORY":
+                self.current_state = "VICTORY"
                 
         elif self.current_state == "GAMEOVER":
             self.game_over_menu.draw()
+        
+        elif self.current_state == "VICTORY":
+            self.victory_menu.draw()
             
         pygame.display.flip()
 

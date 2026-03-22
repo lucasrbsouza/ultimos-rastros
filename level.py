@@ -25,11 +25,18 @@ class Level:
         self.player = pygame.sprite.GroupSingle()
         self.memories = pygame.sprite.Group()
         self.obstacles = pygame.sprite.Group()
-        self.goal = pygame.sprite.GroupSingle() # <-- Novo grupo para o objetivo
+        self.goal = pygame.sprite.GroupSingle()
         
         self.hud = HUD(self.display_surface)
         self.world_shift = 0 
         
+        # Carregamento do Som da Fase
+        try:
+            self.collect_sound = pygame.mixer.Sound('assets/collect.mp3')
+            self.collect_sound.set_volume(0.6)
+        except FileNotFoundError:
+            self.collect_sound = None
+            
         self.setup_level(LEVEL_MAP)
 
     def setup_level(self, layout):
@@ -99,6 +106,9 @@ class Level:
         collided_memories = pygame.sprite.spritecollide(player, self.memories, True)
         if collided_memories:
             player.memories += len(collided_memories)
+            
+            if self.collect_sound:
+                self.collect_sound.play()
 
     def check_damage(self):
         """Verifica colisão com obstáculos e aplica dano."""

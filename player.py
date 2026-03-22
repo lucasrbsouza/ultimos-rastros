@@ -1,5 +1,11 @@
 import pygame
 
+PLAYER_IDLE_PATH = 'assets/player_spritesheet/Idle.png'
+PLAYER_WALK_PATH = 'assets/player_spritesheet/Walk.png'
+PLAYER_JUMP_PATH = 'assets/player_spritesheet/Jump.png'
+JUMP_SOUND_PATH = 'assets/sounds/jump.mp3'
+DAMAGE_SOUND_PATH = 'assets/sounds/damage.mp3'
+
 class Player(pygame.sprite.Sprite):
     def __init__(self, pos):
         super().__init__()
@@ -34,38 +40,68 @@ class Player(pygame.sprite.Sprite):
         self.hurt_time = 0
 
         try:
-            self.jump_sound = pygame.mixer.Sound('assets/jump.mp3')
+            self.jump_sound = pygame.mixer.Sound(JUMP_SOUND_PATH)
             self.jump_sound.set_volume(0.3) # Abaixamos o volume para não estourar o ouvido
             
-            self.damage_sound = pygame.mixer.Sound('assets/damage.mp3')
+            self.damage_sound = pygame.mixer.Sound(DAMAGE_SOUND_PATH)
             self.damage_sound.set_volume(0.5)
         except FileNotFoundError:
             # Se o arquivo não existir, o jogo continua rodando sem som
             self.jump_sound = None
             self.damage_sound = None
 
+    def get_frame(self, sheet, frame_x, frame_y, width, height, scale):
+        """Extrai um único quadro (frame) do spritesheet."""
+        # Cria uma superfície vazia transparente do tamanho exato do quadro
+        image = pygame.Surface((width, height), pygame.SRCALPHA)
+        
+        # 'Carimba' o pedaço específico do spritesheet nessa superfície vazia
+        # O tuplo (frame_x, frame_y, width, height) é o retângulo de corte
+        image.blit(sheet, (0, 0), (frame_x, frame_y, width, height))
+        
+        # Redimensiona a imagem para o jogo (caso o pixel art seja muito pequeno)
+        image = pygame.transform.scale(image, (width * scale, height * scale))
+        
+        return image
+
     def import_character_assets(self):
-        """Carrega a imagem e cria variações para simular animação (Squash & Stretch)."""
+        """Carrega o spritesheet e recorta as animações automaticamente."""
         self.animations = {'idle': [], 'run': [], 'jump': []}
         
         try:
-            img = pygame.image.load('assets/player.png').convert_alpha()
-            base_image = pygame.transform.scale(img, (32, 64))
-            
-            # Animação Parado (Idle)
-            self.animations['idle'].append(base_image)
-            
-            # Animação Correndo (Intercala a imagem normal com uma levemente achatada)
-            run_frame = pygame.transform.scale(img, (34, 60)) 
-            self.animations['run'].append(base_image)
-            self.animations['run'].append(run_frame)
-            
-            # Animação Pulando (Imagem levemente esticada)
-            jump_frame = pygame.transform.scale(img, (28, 68))
-            self.animations['jump'].append(jump_frame)
+            # Carregue as imagens dos spritesheets
+            player_idle = pygame.image.load(PLAYER_IDLE_PATH).convert_alpha()
+            player_walk = pygame.image.load(PLAYER_WALK_PATH).convert_alpha()
+            player_jump = pygame.image.load(PLAYER_JUMP_PATH).convert_alpha()
+
+            # --- Dimensões do spritesheet ---
+            # Largura total: 1024 px, altura: 128 px, 8 quadros
+            frame_width = 1024 // 8   # = 128
+            frame_height = 128        # = 128
+            scale = 0.80                # fator de escala (ajuste se necessário)
+
+            # Recortando a animação de Idle (Parado)
+            # Todos os quadros estão na linha Y = 0
+            for i in range(5):
+                frame = self.get_frame(player_idle, i * frame_width, 0, frame_width, frame_height, scale)
+                self.animations['idle'].append(frame)
+
+            # Recortando a animação de Walk (Andar)
+            for i in range(8):
+                frame = self.get_frame(player_walk, i * frame_width, 0, frame_width, frame_height, scale)
+                self.animations['run'].append(frame)
+
+            # Recortando a animação de Jump (Pular)
+            # Se o spritesheet de pulo tiver menos quadros, ajuste o range
+            # Exemplo: se tiver apenas 2 quadros, use range(2)
+            # Caso tenha 8 quadros, use range(8)
+            for i in range(7):  # ou range(2) se for o caso
+                frame = self.get_frame(player_jump, i * frame_width, 0, frame_width, frame_height, scale)
+                self.animations['jump'].append(frame)
+
 
         except FileNotFoundError:
-            # Fallback: Mantém os blocos vermelhos se faltar imagem
+            # Fallback de segurança (mantém o quadrado vermelho se algo der errado)
             fallback = pygame.Surface((32, 64))
             fallback.fill((255, 50, 50))
             self.animations['idle'].append(fallback)
@@ -108,7 +144,6 @@ class Player(pygame.sprite.Sprite):
         # Pega a imagem atual da lista
         image = animation[int(self.frame_index)]
         
-        # O pulo do gato: pygame.transform.flip vira a imagem horizontalmente!
         if self.facing_right:
             self.image = image
         else:
@@ -120,7 +155,7 @@ class Player(pygame.sprite.Sprite):
 
     def jump(self):
         self.direction.y = self.jump_speed
-        if self.jump_sound: # Só toca se o som foi carregado com sucesso
+        if self.jump_sound:
             self.jump_sound.play()
 
     def take_damage(self, amount):

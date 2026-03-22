@@ -4,6 +4,11 @@ from settings import *
 from menu import MainMenu, GameOverMenu, VictoryMenu
 from level import Level
 
+MENU_BGM_PATH = 'assets/sounds/menu_bgm.mp3'
+GAME_BGM_PATH = 'assets/sounds/game_bgm.mp3'
+GAMEOVER_SOUND_PATH = 'assets/sounds/gameover.mp3'
+VICTORY_SOUND_PATH = 'assets/sounds/victory.mp3'
+
 class Game:
     def __init__(self):
         pygame.init()
@@ -31,19 +36,19 @@ class Game:
         
         try:
             if new_state == "MENU":
-                pygame.mixer.music.load('assets/menu_bgm.mp3')
+                pygame.mixer.music.load(MENU_BGM_PATH)
                 pygame.mixer.music.play(-1)
                 
             elif new_state == "GAMEPLAY":
-                pygame.mixer.music.load('assets/game_bgm.mp3')
+                pygame.mixer.music.load(GAME_BGM_PATH)
                 pygame.mixer.music.play(-1)
                 
             elif new_state == "GAMEOVER":
-                pygame.mixer.music.load('assets/gameover.mp3')
+                pygame.mixer.music.load(GAMEOVER_SOUND_PATH)
                 pygame.mixer.music.play(0)
                 
             elif new_state == "VICTORY":
-                pygame.mixer.music.load('assets/victory.mp3')
+                pygame.mixer.music.load(VICTORY_SOUND_PATH)
                 pygame.mixer.music.play(0) 
                 
         except pygame.error:

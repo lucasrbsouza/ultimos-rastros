@@ -1,8 +1,11 @@
 import pygame
 from settings import *
-from sprites import Tile, Memory, Obstacle, Goal
+from sprites import Tile, Memory, Enemy, Goal
 from player import Player
 from ui import HUD
+
+COLLECT_SOUND_PATH = 'assets/sounds/collect.wav'
+BG_GAME_PATH = 'assets/backgrounds/bg_game.png'
 
 LEVEL_MAP = [
 #    Apresentação                  | Teste                                     | Clímax
@@ -10,10 +13,10 @@ LEVEL_MAP = [
     '                                                                                                    ',
     '                                                                                 M                  ',
     '                                                           M                                     ',
-    '                                                         XXX   XXX              XXX                      ',
+    '                                                         XXX                    XXX                      ',
     '       C                        M                                      XXX            XX      G       ',
-    '                               XXX           O  O               XXX                       X   X    ',
-    '                                           XXX  XXX          O       X     X    O           X       ',
+    '                               XXX           E                 XXX                        X   X    ',
+    '                              E            XXX  XXX          E       X     X    E           X       ',
     'XXXXXXXXXXXXXXXXXX   XXXXXXXXXXXXXXXXXXX  XXXX  XXXX  XXX   XXX     XX    XXXXXXXXXXXXXXXXXX       '
 ]
 
@@ -24,18 +27,24 @@ class Level:
         self.tiles = pygame.sprite.Group()
         self.player = pygame.sprite.GroupSingle()
         self.memories = pygame.sprite.Group()
-        self.obstacles = pygame.sprite.Group()
+        self.enemies = pygame.sprite.Group()
         self.goal = pygame.sprite.GroupSingle()
         
         self.hud = HUD(self.display_surface)
         self.world_shift = 0 
         
-        # Carregamento do Som da Fase
         try:
-            self.collect_sound = pygame.mixer.Sound('assets/collect.mp3')
+            self.collect_sound = pygame.mixer.Sound(COLLECT_SOUND_PATH)
             self.collect_sound.set_volume(0.6)
         except FileNotFoundError:
             self.collect_sound = None
+
+        # Carrega o background da Gameplay
+        try:
+            self.bg_image = pygame.image.load(BG_GAME_PATH).convert()
+            self.bg_image = pygame.transform.scale(self.bg_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
+        except FileNotFoundError:
+            self.bg_image = None
             
         self.setup_level(LEVEL_MAP)
 
@@ -54,10 +63,10 @@ class Level:
                 elif cell == 'M':
                     memory_sprite = Memory((x, y), TILE_SIZE)
                     self.memories.add(memory_sprite)
-                elif cell == 'O':
-                    obstacle_sprite = Obstacle((x, y), TILE_SIZE)
-                    self.obstacles.add(obstacle_sprite)
-                elif cell == 'G': # <-- Criação do Objetivo
+                elif cell == 'E':
+                    enemy_sprite = Enemy((x, y), TILE_SIZE)
+                    self.enemies.add(enemy_sprite)
+                elif cell == 'G':
                     goal_sprite = Goal((x, y), TILE_SIZE)
                     self.goal.add(goal_sprite)
 
@@ -111,10 +120,9 @@ class Level:
                 self.collect_sound.play()
 
     def check_damage(self):
-        """Verifica colisão com obstáculos e aplica dano."""
+        """Verifica colisão com inimigos e aplica dano."""
         player = self.player.sprite
-        # O 'False' significa que o obstáculo NÃO some ao encostar
-        if pygame.sprite.spritecollide(player, self.obstacles, False):
+        if pygame.sprite.spritecollide(player, self.enemies, False):
             player.take_damage(1)
 
     def check_death(self):
@@ -130,7 +138,11 @@ class Level:
         return False
 
     def run(self):
-        self.display_surface.fill((30, 80, 40))
+        # Desenha o background primeiro
+        if self.bg_image:
+            self.display_surface.blit(self.bg_image, (0, 0))
+        else:
+            self.display_surface.fill((30, 80, 40))
         
         self.tiles.update(self.world_shift)
         self.tiles.draw(self.display_surface)
@@ -138,11 +150,11 @@ class Level:
         self.memories.update(self.world_shift)
         self.memories.draw(self.display_surface)
         
-        self.obstacles.update(self.world_shift)
-        self.obstacles.draw(self.display_surface)
+        self.enemies.update(self.world_shift) 
+        self.enemies.draw(self.display_surface)
         
-        self.goal.update(self.world_shift)
-        self.goal.draw(self.display_surface)
+        self.goal.update(self.world_shift) 
+        self.goal.draw(self.display_surface) 
         
         self.scroll_x()
         
@@ -161,7 +173,7 @@ class Level:
         if self.check_death():
             return "GAMEOVER"
             
-        if self.check_victory():
+        if self.check_victory(): 
             return "VICTORY"
         
         return None

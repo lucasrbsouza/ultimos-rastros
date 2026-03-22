@@ -3,8 +3,15 @@ import pygame
 class Player(pygame.sprite.Sprite):
     def __init__(self, pos):
         super().__init__()
-        self.image = pygame.Surface((32, 64))
-        self.image.fill((255, 50, 50)) 
+        
+        # Tentativa de carregar a imagem do Curupira
+        try:
+            self.image = pygame.image.load('assets/player.png').convert_alpha()
+            self.image = pygame.transform.scale(self.image, (32, 64))
+        except FileNotFoundError:
+            self.image = pygame.Surface((32, 64))
+            self.image.fill((255, 50, 50))
+            
         self.rect = self.image.get_rect(topleft=pos)
 
         self.direction = pygame.math.Vector2(0, 0)

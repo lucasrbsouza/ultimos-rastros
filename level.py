@@ -5,15 +5,16 @@ from player import Player
 from ui import HUD
 
 LEVEL_MAP = [
-    '                                                            ',
-    '                                                            ',
-    '                                                            ',
-    '                   M                                        ',
-    '       C          XXX                                       ',
-    '                        XXX                        XXX         ',
-    '                              XXX                           ',
-    '                 XXX          O           M                O    O    G  ',
-    'XXXXXXXXX   XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX   XXXXXX'
+#    Apresentação                  | Teste                                     | Clímax
+    '                                                                                                    ',
+    '                                                                                                    ',
+    '                                                                                 M                  ',
+    '                                                           M                                     ',
+    '                                                         XXX   XXX              XXX                      ',
+    '       C                        M                                      XXX            XX      G       ',
+    '                               XXX           O  O               XXX                       X   X    ',
+    '                                           XXX  XXX          O       X     X    O           X       ',
+    'XXXXXXXXXXXXXXXXXX   XXXXXXXXXXXXXXXXXXX  XXXX  XXXX  XXX   XXX     XX    XXXXXXXXXXXXXXXXXX       '
 ]
 
 class Level:

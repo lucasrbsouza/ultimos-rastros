@@ -139,12 +139,86 @@ class VictoryMenu:
     def draw(self):
         if self.bg_image:
             self.screen.blit(self.bg_image, (0, 0))
+
+            # 🔥 Overlay escuro (igual ao Credits)
+            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+            overlay.set_alpha(150)  # pode ajustar (120–200)
+            overlay.fill((0, 0, 0))
+            self.screen.blit(overlay, (0, 0))
+
         else:
             self.screen.fill((20, 50, 30)) 
         
-        title_text = self.font_title.render("A Lenda Vive!", True, (150, 255, 150))
+        title_text = self.font_title.render("A Lenda Vive!", True, (255, 215, 0))
         title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, 200))
+
+        # sombra
+        shadow = self.font_title.render("A Lenda Vive!", True, (0, 0, 0))
+        self.screen.blit(shadow, (title_rect.x + 3, title_rect.y + 3))
+
+        # texto principal
         self.screen.blit(title_text, title_rect)
 
         self.btn_menu.draw(self.screen)
         self.btn_quit.draw(self.screen)
+
+class CreditsMenu:
+    def __init__(self, screen):
+        self.screen = screen
+        self.font_title = pygame.font.Font(None, 72)
+        self.font_text = pygame.font.Font(None, 36)
+        self.font_button = pygame.font.Font(None, 36)
+
+        btn_width = 250
+        btn_height = 50
+        center_x = (SCREEN_WIDTH // 2) - (btn_width // 2)
+
+        self.btn_back = Button(center_x, 500, btn_width, btn_height, "Voltar", self.font_button)
+
+        try:
+            self.bg_image = pygame.image.load(BG_MENU_PATH).convert()
+            self.bg_image = pygame.transform.scale(self.bg_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
+        except FileNotFoundError:
+            self.bg_image = None
+
+    def update(self):
+        mouse_pos = pygame.mouse.get_pos()
+        self.btn_back.update(mouse_pos)
+
+    def handle_event(self, event):
+        if self.btn_back.is_clicked(event):
+            return "MENU"
+        return None
+
+    def draw(self):
+        if self.bg_image:
+            self.screen.blit(self.bg_image, (0, 0))
+            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+            overlay.set_alpha(180)
+            overlay.fill((0, 0, 0))
+            self.screen.blit(overlay, (0, 0))
+        else:
+            self.screen.fill((20, 30, 25)) 
+        
+        # Título
+        title_text = self.font_title.render("Créditos", True, COLOR_TEXT)
+        title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, 100))
+        self.screen.blit(title_text, title_rect)
+
+        # Informações do GDD
+        credits_info = [
+            "Projeto: Últimos Rastros",
+            "Desenvolvedor: José Lucas Silva Souza",
+            "Instituição: Icev - Instituto de Ensino Superior",
+            "Disciplina: Desenvolvimento de Jogos",
+            "Ano: 2026"
+        ]
+
+        start_y = 200
+        for line in credits_info:
+            text_surf = self.font_text.render(line, True, (200, 220, 200))
+            text_rect = text_surf.get_rect(center=(SCREEN_WIDTH // 2, start_y))
+            self.screen.blit(text_surf, text_rect)
+            start_y += 50
+
+        self.btn_back.draw(self.screen)

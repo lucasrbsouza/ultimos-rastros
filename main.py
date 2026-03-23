@@ -1,7 +1,7 @@
 import pygame
 import sys
 from settings import *
-from menu import MainMenu, GameOverMenu, VictoryMenu
+from menu import MainMenu, GameOverMenu, VictoryMenu, CreditsMenu
 from level import Level
 
 MENU_BGM_PATH = 'assets/sounds/menu_bgm.mp3'
@@ -23,6 +23,7 @@ class Game:
         self.main_menu = MainMenu(self.screen)
         self.game_over_menu = GameOverMenu(self.screen)
         self.victory_menu = VictoryMenu(self.screen)
+        self.credits_menu = CreditsMenu(self.screen)
         self.level = Level(self.screen)
 
         
@@ -30,29 +31,35 @@ class Game:
         self.change_state("MENU")
 
     def change_state(self, new_state):
-        """Centraliza a troca de estados e o gerenciamento das músicas de fundo."""
+        old_state = self.current_state
         self.current_state = new_state
+
+        if new_state == "MENU" and old_state == "CREDITS":
+            pygame.mixer.music.unpause()
+            return
+
+        # Mantém a música ao entrar nos Créditos
+        if new_state == "CREDITS":
+            pygame.mixer.music.unpause()
+            return
+
         pygame.mixer.music.stop()
-        
+
         try:
             if new_state == "MENU":
                 pygame.mixer.music.load(MENU_BGM_PATH)
                 pygame.mixer.music.play(-1)
-                
             elif new_state == "GAMEPLAY":
                 pygame.mixer.music.load(GAME_BGM_PATH)
                 pygame.mixer.music.play(-1)
-                
             elif new_state == "GAMEOVER":
                 pygame.mixer.music.load(GAMEOVER_SOUND_PATH)
                 pygame.mixer.music.play(0)
-                
             elif new_state == "VICTORY":
                 pygame.mixer.music.load(VICTORY_SOUND_PATH)
-                pygame.mixer.music.play(0) 
+                pygame.mixer.music.play(0)
                 
         except pygame.error:
-            
             print(f"Aviso: Música para o estado {new_state} não encontrada na pasta assets.")
 
     def handle_events(self):
@@ -66,6 +73,7 @@ class Game:
                     self.level = Level(self.screen)
                     self.change_state("GAMEPLAY")
                 elif action == "CREDITS":
+                    self.change_state("CREDITS")
                     print("Créditos: José Lucas Silva Souza")
                 elif action == "QUIT":
                     self.is_running = False
@@ -88,6 +96,11 @@ class Game:
                     self.change_state("MENU")
                 elif action == "QUIT":
                     self.is_running = False
+            
+            elif self.current_state == "CREDITS":
+                action = self.credits_menu.handle_event(event)
+                if action == "MENU":
+                    self.change_state("MENU")
 
     def update(self):
         if self.current_state == "MENU":
@@ -96,6 +109,8 @@ class Game:
             self.game_over_menu.update()
         elif self.current_state == "VICTORY":
             self.victory_menu.update()
+        elif self.current_state == "CREDITS":
+            self.credits_menu.update()
 
     def draw(self):
         if self.current_state == "MENU":
@@ -113,6 +128,8 @@ class Game:
             
         elif self.current_state == "VICTORY":
             self.victory_menu.draw()
+        elif self.current_state == "CREDITS":
+            self.credits_menu.draw()
             
         pygame.display.flip()
 

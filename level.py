@@ -11,13 +11,13 @@ LEVEL_MAP = [
 #    Apresentação                  | Teste                                     | Clímax
     '                                                                                                    ',
     '                                                                                                    ',
-    '                                                                                 M                  ',
-    '                                                           M                                     ',
-    '                                                         XXX                    XXX                      ',
-    '       C                        M                                      XXX            XX      G       ',
-    '                               XXX           E                 XXX                        X   X    ',
-    '                              E            XXX  XXX          E       X     X    E           X       ',
-    'XXXXXXXXXXXXXXXXXX   XXXXXXXXXXXXXXXXXXX  XXXX  XXXX  XXX   XXX     XX    XXXXXXXXXXXXXXXXXX       '
+    '                                                                                                 ',
+    '                                                                                               ',
+    '                                                                                                 ',
+    '       C                                                                                  ',
+    '                                                                                 ',
+    '         M      E       X  M   X    E  G            ',
+    'XXXXXXXXXXXXXXXXXX   XXXXXXXXXXXXXXXXXXX'
 ]
 
 class Level:

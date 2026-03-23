@@ -2,6 +2,7 @@ import pygame
 
 PLAYER_IDLE_PATH = 'assets/player_spritesheet/Idle.png'
 PLAYER_WALK_PATH = 'assets/player_spritesheet/Walk.png'
+PLAYER_RUN_PATH = 'assets/player_spritesheet/Run.png'
 PLAYER_JUMP_PATH = 'assets/player_spritesheet/Jump.png'
 JUMP_SOUND_PATH = 'assets/sounds/jump.mp3'
 DAMAGE_SOUND_PATH = 'assets/sounds/damage.mp3'
@@ -71,7 +72,7 @@ class Player(pygame.sprite.Sprite):
         try:
             # Carregue as imagens dos spritesheets
             player_idle = pygame.image.load(PLAYER_IDLE_PATH).convert_alpha()
-            player_walk = pygame.image.load(PLAYER_WALK_PATH).convert_alpha()
+            player_run = pygame.image.load(PLAYER_RUN_PATH).convert_alpha()
             player_jump = pygame.image.load(PLAYER_JUMP_PATH).convert_alpha()
 
             # --- Dimensões do spritesheet ---
@@ -88,7 +89,7 @@ class Player(pygame.sprite.Sprite):
 
             # Recortando a animação de Walk (Andar)
             for i in range(8):
-                frame = self.get_frame(player_walk, i * frame_width, 0, frame_width, frame_height, scale)
+                frame = self.get_frame(player_run, i * frame_width, 0, frame_width, frame_height, scale)
                 self.animations['run'].append(frame)
 
             # Recortando a animação de Jump (Pular)
@@ -113,10 +114,10 @@ class Player(pygame.sprite.Sprite):
 
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
             self.direction.x = 1
-            self.facing_right = True # Curupira olha para a direita
+            self.facing_right = True
         elif keys[pygame.K_LEFT] or keys[pygame.K_a]:
             self.direction.x = -1
-            self.facing_right = False # Curupira olha para a esquerda
+            self.facing_right = False
         else:
             self.direction.x = 0
 

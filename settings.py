@@ -32,7 +32,7 @@ RUN_FRAMES = 8
 
 JUMP_FRAME_WIDTH = 32
 JUMP_FRAME_HEIGHT = 32
-JUMP_FRAMES = 2 # Jump às vezes é só um quadro de subida e um de descida
+JUMP_FRAMES = 7 # Jump às vezes é só um quadro de subida e um de descida
 
 # Fator de escala visual (quanto maior, maior o boneco na tela)
 # Um valor como 3.0 ou 3.5 deve ficar bom com a sua escala de jogo

@@ -7,7 +7,7 @@ from ui import HUD
 from levels import *
 
 COLLECT_SOUND_PATH = 'assets/sounds/collect.wav'
-BG_GAME_PATH = 'assets/backgrounds/bg_game.png'
+BG_GAME_PATH = 'assets/backgrounds_statics/bg_game.png'
 
 class Level:
     def __init__(self, surface):

@@ -3,9 +3,9 @@ from settings import *
 from ui import Button
 import math, random
 
-BG_MENU_PATH = 'assets/backgrounds/bg_menu.png'
-BG_GAMEOVER_PATH = 'assets/backgrounds/bg_gameover.png'
-BG_VICTORY_PATH = 'assets/backgrounds/bg_victory.png'
+BG_MENU_PATH = 'assets/backgrounds_statics/bg_menu.png'
+BG_GAMEOVER_PATH = 'assets/backgrounds_statics/bg_gameover.png'
+BG_VICTORY_PATH = 'assets/backgrounds_statics/bg_victory.png'
 
 class MainMenu:
     def __init__(self, screen):

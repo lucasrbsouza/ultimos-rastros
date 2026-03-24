@@ -13,11 +13,11 @@ class ParallaxBackground:
         # Carrega as 5 imagens (certifique-se de que estão na pasta correta)
         for i in range(1, 6):
             try:
-                img = pygame.image.load(f'assets/bg/{i}.png').convert_alpha()
+                img = pygame.image.load(f'assets/background_parallax/{i}.png').convert_alpha()
                 img = pygame.transform.scale(img, (screen_width, screen_height))
                 self.images.append(img)
             except FileNotFoundError:
-                print(f"Aviso: Não foi possível carregar assets/bg/{i}.png")
+                print(f"Aviso: Não foi possível carregar assets/background_parallax/{i}.png")
                 # Fallback visual caso falte alguma imagem
                 fallback = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
                 self.images.append(fallback)

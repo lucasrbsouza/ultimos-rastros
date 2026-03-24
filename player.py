@@ -102,6 +102,13 @@ class Player(pygame.sprite.Sprite):
             for key in self.animations:
                 self.animations[key].append(fallback)
 
+        # Pré-gera todos os frames espelhados (esquerda) de uma vez
+        self.animations_flipped = {}
+        for key, frames in self.animations.items():
+            self.animations_flipped[key] = [
+                pygame.transform.flip(f, True, False) for f in frames
+            ]
+
     def get_input(self):
         keys = pygame.key.get_pressed()
 
@@ -161,12 +168,12 @@ class Player(pygame.sprite.Sprite):
         if self.frame_index >= len(animation):
             self.frame_index = 0
             
-        image = animation[int(self.frame_index)]
+        idx = int(self.frame_index)
         
         if self.facing_right:
-            self.image = image
+            self.image = self.animations[self.status][idx]
         else:
-            self.image = pygame.transform.flip(image, True, False) 
+            self.image = self.animations_flipped[self.status][idx] 
 
     def apply_gravity(self):
         self.direction.y += self.gravity

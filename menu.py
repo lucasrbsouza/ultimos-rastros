@@ -9,6 +9,8 @@ BG_VICTORY_PATH = 'assets/backgrounds_statics/bg_victory.png'
 
 class MainMenu:
     def __init__(self, screen):
+        
+        self._particle_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
         self.screen = screen
         self.clock_ticks = 0
 
@@ -72,6 +74,13 @@ class MainMenu:
                  rw * 2, rh * 2)
             )
 
+        # --- Surfaces pré-alocadas (sem realocação em cada frame) ---
+        self._particle_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        self._leaf_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+
+        # --- Linha de brilho pré-renderizada ---
+        self._glow_line = self._build_glow_line(width=460, color=(80, 180, 100))
+
         # --- Animação ---
         self.fade_alpha     = 255
         self.title_alpha    = 255
@@ -94,7 +103,7 @@ class MainMenu:
         }
 
     def _draw_particles(self):
-        surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        self._particle_surf.fill((0, 0, 0, 0))
         t = self.clock_ticks * 0.015
         for p in self.particles:
             p["y"] -= p["speed"]
@@ -102,37 +111,43 @@ class MainMenu:
             if p["y"] < -10:
                 p.update(self._new_particle())
             r, g, b = p["color"]
-            pygame.draw.circle(surf, (r, g, b, 28),
+            pygame.draw.circle(self._particle_surf, (r, g, b, 28),
                                (int(p["x"]), int(p["y"])), int(p["size"] * 2.8))
-            pygame.draw.circle(surf, (r, g, b, p["alpha"]),
+            pygame.draw.circle(self._particle_surf, (r, g, b, p["alpha"]),
                                (int(p["x"]), int(p["y"])), int(p["size"]))
-        self.screen.blit(surf, (0, 0))
+        self.screen.blit(self._particle_surf, (0, 0))
 
     def _draw_leaves(self):
         """Pontos de luz orbitando o título em elipse achatada."""
+        self._leaf_surf.fill((0, 0, 0, 0))
         cx = SCREEN_WIDTH  // 2
         cy = SCREEN_HEIGHT // 2 - 130
-        surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
         for lf in self.leaves:
             lf["angle"] += lf["speed"]
             lx = cx + math.cos(lf["angle"]) * lf["dist"]
             ly = cy + math.sin(lf["angle"]) * lf["dist"] * 0.28
             r, g, b = lf["color"]
-            pygame.draw.circle(surf, (r, g, b, 35), (int(lx), int(ly)), int(lf["size"] * 2.2))
-            pygame.draw.circle(surf, (r, g, b, 200), (int(lx), int(ly)), int(lf["size"]))
-        self.screen.blit(surf, (0, 0))
+            pygame.draw.circle(self._leaf_surf, (r, g, b, 35), (int(lx), int(ly)), int(lf["size"] * 2.2))
+            pygame.draw.circle(self._leaf_surf, (r, g, b, 200), (int(lx), int(ly)), int(lf["size"]))
+        self.screen.blit(self._leaf_surf, (0, 0))
 
-    def _draw_glow_line(self, y, width=460, color=(80, 180, 100)):
+    def _build_glow_line(self, width, color):
+        """Constrói a linha de brilho uma única vez."""
         surf = pygame.Surface((width, 4), pygame.SRCALPHA)
+        r, g, b = color
         for i in range(width):
             fade = math.sin((i / width) * math.pi) ** 1.5
-            r, g, b = color
             surf.set_at((i, 1), (r, g, b, int(fade * 190)))
             surf.set_at((i, 2), (r, g, b, int(fade * 70)))
-        self.screen.blit(surf, (SCREEN_WIDTH // 2 - width // 2, y))
+        return surf
+
+    def _draw_glow_line(self, y):
+        """Desenha a linha pré-renderizada."""
+        x = SCREEN_WIDTH // 2 - self._glow_line.get_width() // 2
+        self.screen.blit(self._glow_line, (x, y))
 
     def _draw_title(self, text, cx, cy, alpha):
-        font = pygame.font.Font(None, 112)
+        font = self.font_title
         pulse = 0.5 + 0.5 * math.sin(self.clock_ticks * 0.025)
         color = (
             int(160 + 50 * pulse),
@@ -281,6 +296,12 @@ class GameOverMenu:
                  r * 2, int(r * 1.2))
             )
 
+        # --- Surface pré-alocada (sem realocação em cada frame) ---
+        self._particle_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+
+        # --- Linha de brilho pré-renderizada ---
+        self._glow_line = self._build_glow_line(width=500, color=(160, 30, 20))
+
         # --- Animação (rápida, lição aprendida) ---
         self.fade_alpha     = 0
         self.title_offset_y = -60    # cai do topo
@@ -309,7 +330,7 @@ class GameOverMenu:
         }
 
     def _draw_particles(self):
-        surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        self._particle_surf.fill((0, 0, 0, 0))
         t = self.clock_ticks * 0.018
         for p in self.particles:
             p["y"] -= p["speed"]
@@ -318,21 +339,27 @@ class GameOverMenu:
                 p.update(self._new_particle())
             r, g, b = p["color"]
             # halo
-            pygame.draw.circle(surf, (r, g, b, 25),
+            pygame.draw.circle(self._particle_surf, (r, g, b, 25),
                                (int(p["x"]), int(p["y"])), int(p["size"] * 2.5))
             # núcleo
-            pygame.draw.circle(surf, (r, g, b, p["alpha"]),
+            pygame.draw.circle(self._particle_surf, (r, g, b, p["alpha"]),
                                (int(p["x"]), int(p["y"])), int(p["size"]))
-        self.screen.blit(surf, (0, 0))
+        self.screen.blit(self._particle_surf, (0, 0))
 
-    def _draw_glow_line(self, y, width=500, color=(160, 30, 20)):
+    def _build_glow_line(self, width, color):
+        """Constrói a linha de brilho uma única vez."""
         surf = pygame.Surface((width, 4), pygame.SRCALPHA)
+        r, g, b = color
         for i in range(width):
             fade = math.sin((i / width) * math.pi) ** 1.5
-            r, g, b = color
             surf.set_at((i, 1), (r, g, b, int(fade * 200)))
             surf.set_at((i, 2), (r, g, b, int(fade * 70)))
-        self.screen.blit(surf, (SCREEN_WIDTH // 2 - width // 2, y))
+        return surf
+
+    def _draw_glow_line(self, y):
+        """Desenha a linha pré-renderizada."""
+        x = SCREEN_WIDTH // 2 - self._glow_line.get_width() // 2
+        self.screen.blit(self._glow_line, (x, y))
 
     def _draw_panel(self, x, y, w, h):
         panel = pygame.Surface((w, h), pygame.SRCALPHA)
@@ -345,7 +372,7 @@ class GameOverMenu:
                          (x, y, w, h), 2, border_radius=8)
 
     def _draw_title(self, text, cx, cy, offset_y, alpha):
-        font = pygame.font.Font(None, 96)
+        font = self.font_title
         # shake nos primeiros frames
         sx = random.randint(-2, 2) if self.shake_timer > 0 else 0
         sy = random.randint(-2, 2) if self.shake_timer > 0 else 0
@@ -487,6 +514,13 @@ class VictoryMenu:
                        "color": random.choice([(255,215,0),(255,245,120),(255,180,50),(200,255,180)])}
                       for _ in range(18)]
 
+        # --- Surfaces pré-alocadas (sem realocação em cada frame) ---
+        self._particle_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        self._star_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+
+        # --- Linha de brilho pré-renderizada ---
+        self._glow_line = self._build_glow_line(width=520, color=(220, 170, 30))
+
         # --- Animação ---
         self.fade_alpha    = 0
         self.title_scale   = 0.3       # cresce até 1.0 no pop-in
@@ -511,7 +545,7 @@ class VictoryMenu:
         }
 
     def _draw_particles(self):
-        surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        self._particle_surf.fill((0, 0, 0, 0))
         for p in self.particles:
             p["y"]   += p["vy"]
             p["x"]   += p["vx"]
@@ -529,34 +563,40 @@ class VictoryMenu:
                 (cx,     cy + s),
                 (cx - s, cy    ),
             ]
-            pygame.draw.polygon(surf, (r, g, b, p["alpha"]), pts)
-        self.screen.blit(surf, (0, 0))
+            pygame.draw.polygon(self._particle_surf, (r, g, b, p["alpha"]), pts)
+        self.screen.blit(self._particle_surf, (0, 0))
 
     def _draw_stars(self):
         """Estrelinhas orbitando o centro do título."""
+        self._star_surf.fill((0, 0, 0, 0))
         cx = SCREEN_WIDTH  // 2
         cy = SCREEN_HEIGHT // 2 - 120
-        surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
         for st in self.stars:
             st["angle"] += st["speed"]
             sx = cx + math.cos(st["angle"]) * st["dist"]
             sy = cy + math.sin(st["angle"]) * st["dist"] * 0.35  # elipse achatada
             r, g, b = st["color"]
             # halo
-            pygame.draw.circle(surf, (r, g, b, 40), (int(sx), int(sy)), int(st["size"] * 2.5))
+            pygame.draw.circle(self._star_surf, (r, g, b, 40), (int(sx), int(sy)), int(st["size"] * 2.5))
             # núcleo
-            pygame.draw.circle(surf, (r, g, b, 220), (int(sx), int(sy)), int(st["size"]))
-        self.screen.blit(surf, (0, 0))
+            pygame.draw.circle(self._star_surf, (r, g, b, 220), (int(sx), int(sy)), int(st["size"]))
+        self.screen.blit(self._star_surf, (0, 0))
 
-    def _draw_glow_line(self, y, width=520, color=(220, 170, 30)):
+    def _build_glow_line(self, width, color):
+        """Constrói a linha de brilho uma única vez."""
         surf = pygame.Surface((width, 4), pygame.SRCALPHA)
+        r, g, b = color
         for i in range(width):
             t = i / width
             fade = math.sin(t * math.pi) ** 1.5
-            r, g, b = color
             surf.set_at((i, 1), (r, g, b, int(fade * 200)))
             surf.set_at((i, 2), (r, g, b, int(fade * 80)))
-        self.screen.blit(surf, (SCREEN_WIDTH // 2 - width // 2, y))
+        return surf
+
+    def _draw_glow_line(self, y):
+        """Desenha a linha pré-renderizada."""
+        x = SCREEN_WIDTH // 2 - self._glow_line.get_width() // 2
+        self.screen.blit(self._glow_line, (x, y))
 
     def _draw_panel(self, x, y, w, h):
         panel = pygame.Surface((w, h), pygame.SRCALPHA)
@@ -714,6 +754,12 @@ class CreditsMenu:
         self.particles = [self._new_particle(random.randint(0, SCREEN_HEIGHT))
                           for _ in range(55)]
 
+        # --- Surface pré-alocada (sem realocação em cada frame) ---
+        self._particle_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+
+        # --- Linha de brilho pré-renderizada ---
+        self._glow_line = self._build_glow_line(width=480, color=(100, 200, 140))
+
         # --- Animação de entrada ---
         self.fade_alpha  = 0          # fade-in geral
         self.line_timers = [0.0] * len(self.credits_data)  # por linha
@@ -734,7 +780,7 @@ class CreditsMenu:
         }
 
     def _draw_particles(self):
-        surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        self._particle_surf.fill((0, 0, 0, 0))
         t = self.clock_ticks * 0.015
         for p in self.particles:
             p["y"] -= p["speed"]
@@ -744,25 +790,30 @@ class CreditsMenu:
 
             r, g, b = p["color"]
             # halo externo
-            pygame.draw.circle(surf, (r, g, b, 30),
+            pygame.draw.circle(self._particle_surf, (r, g, b, 30),
                                (int(p["x"]), int(p["y"])),
                                int(p["size"] * 2.8))
             # núcleo
-            pygame.draw.circle(surf, (r, g, b, p["alpha"]),
+            pygame.draw.circle(self._particle_surf, (r, g, b, p["alpha"]),
                                (int(p["x"]), int(p["y"])),
                                int(p["size"]))
-        self.screen.blit(surf, (0, 0))
+        self.screen.blit(self._particle_surf, (0, 0))
 
-    def _draw_glow_line(self, y, width=480, color=(100, 200, 140)):
-        """Linha decorativa com brilho central."""
+    def _build_glow_line(self, width, color):
+        """Constrói a linha de brilho uma única vez."""
         surf = pygame.Surface((width, 4), pygame.SRCALPHA)
+        r, g, b = color
         for i in range(width):
-            t = i / width  # 0 → 1
+            t = i / width
             fade = math.sin(t * math.pi) ** 1.5
-            r, g, b = color
             surf.set_at((i, 1), (r, g, b, int(fade * 180)))
             surf.set_at((i, 2), (r, g, b, int(fade * 80)))
-        self.screen.blit(surf, (SCREEN_WIDTH // 2 - width // 2, y))
+        return surf
+
+    def _draw_glow_line(self, y):
+        """Desenha a linha pré-renderizada."""
+        x = SCREEN_WIDTH // 2 - self._glow_line.get_width() // 2
+        self.screen.blit(self._glow_line, (x, y))
 
     def _draw_panel(self, x, y, w, h, alpha=210):
         """Painel escuro semi-transparente com borda brilhante."""

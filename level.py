@@ -169,15 +169,25 @@ class Level:
             return True
         return False
 
+    def draw_visible(self, group):
+        """Desenha apenas os sprites que estão dentro da tela visível."""
+        # Péga o retângulo da tela e expande um tile para cada lado
+        # para evitar que sprites "apa reçam" bruscamente na borda
+        visible_area = self.display_surface.get_rect().inflate(TILE_SIZE * 2, TILE_SIZE * 2)
+
+        for sprite in group:
+            if visible_area.colliderect(sprite.rect):
+                self.display_surface.blit(sprite.image, sprite.rect)
+
     def run(self):
         self.parallax.update(self.world_shift)
         self.parallax.draw(self.display_surface)
         
         self.tiles.update(self.world_shift)
-        self.tiles.draw(self.display_surface)
+        self.draw_visible(self.tiles)
 
         self.objects.update(self.world_shift)
-        self.objects.draw(self.display_surface)
+        self.draw_visible(self.objects)
         
         self.memories.update(self.world_shift)
         self.memories.draw(self.display_surface)

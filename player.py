@@ -15,12 +15,14 @@ class Player(pygame.sprite.Sprite):
         self.frame_index = 0
         self.animation_speed = 0.15
         
+        # 1. Configuração Visual e Hitbox
         self.image = self.animations['idle'][self.frame_index]
-        self.rect = self.image.get_rect(topleft=pos)
+        full_image_rect = self.image.get_rect(topleft=pos)
 
-        # Define a imagem inicial (parado)
-        self.image = self.animations['idle'][self.frame_index]
-        self.rect = self.image.get_rect(topleft=pos)
+        # Hitbox Físico: 40px de largura e 80px de altura
+        # Se a colisão continuar estranha, ajuste apenas estes dois números!
+        self.rect = pygame.Rect(full_image_rect.x, full_image_rect.y, 40, 80)
+        self.rect.midbottom = full_image_rect.midbottom
 
         # 2. Variáveis de Movimento
         self.direction = pygame.math.Vector2(0, 0)
@@ -28,7 +30,7 @@ class Player(pygame.sprite.Sprite):
         self.gravity = 0.8
         self.jump_speed = -16
 
-        # 3. Status e Direção (NOVO)
+        # 3. Status e Direção
         self.status = 'idle'
         self.facing_right = True
 
@@ -42,67 +44,60 @@ class Player(pygame.sprite.Sprite):
 
         try:
             self.jump_sound = pygame.mixer.Sound(JUMP_SOUND_PATH)
-            self.jump_sound.set_volume(0.3) # Abaixamos o volume para não estourar o ouvido
+            self.jump_sound.set_volume(0.3) 
             
             self.damage_sound = pygame.mixer.Sound(DAMAGE_SOUND_PATH)
             self.damage_sound.set_volume(0.5)
         except FileNotFoundError:
-            # Se o arquivo não existir, o jogo continua rodando sem som
             self.jump_sound = None
             self.damage_sound = None
 
     def get_frame(self, sheet, frame_x, frame_y, width, height, scale):
         """Extrai um único quadro (frame) do spritesheet."""
-        # Cria uma superfície vazia transparente do tamanho exato do quadro
         image = pygame.Surface((width, height), pygame.SRCALPHA)
-        
-        # 'Carimba' o pedaço específico do spritesheet nessa superfície vazia
-        # O tuplo (frame_x, frame_y, width, height) é o retângulo de corte
         image.blit(sheet, (0, 0), (frame_x, frame_y, width, height))
-        
-        # Redimensiona a imagem para o jogo (caso o pixel art seja muito pequeno)
-        image = pygame.transform.scale(image, (width * scale, height * scale))
-        
+        image = pygame.transform.scale(image, (int(width * scale), int(height * scale)))
         return image
 
     def import_character_assets(self):
-        """Carrega o spritesheet e recorta as animações automaticamente."""
+        """Carrega e fatia os spritesheets de forma dinâmica (Clean Code)."""
         self.animations = {'idle': [], 'run': [], 'jump': []}
-        
+        scale = 0.80 
+
         try:
-            # Carregue as imagens dos spritesheets
             player_idle = pygame.image.load(PLAYER_IDLE_PATH).convert_alpha()
             player_run = pygame.image.load(PLAYER_RUN_PATH).convert_alpha()
             player_jump = pygame.image.load(PLAYER_JUMP_PATH).convert_alpha()
 
-            # --- Dimensões do spritesheet ---
-            # Largura total: 1024 px, altura: 128 px, 8 quadros
-            frame_width = 1024 // 8   # = 128
-            frame_height = 128        # = 128
-            scale = 0.80                # fator de escala (ajuste se necessário)
+            # --- ATENÇÃO AQUI ---
+            # Verifique nas suas imagens quantos desenhos tem em cada uma e coloque abaixo:
+            frames_idle = 5   # Exemplo: Se Idle.png tiver 6 desenhos, mude para 6
+            frames_run = 8    
+            frames_jump = 7   
 
-            # Recortando a animação de Idle (Parado)
-            # Todos os quadros estão na linha Y = 0
-            for i in range(5):
+            # --- IDLE ---
+            frame_width = player_idle.get_width() // frames_idle
+            frame_height = player_idle.get_height()
+            for i in range(frames_idle):
                 frame = self.get_frame(player_idle, i * frame_width, 0, frame_width, frame_height, scale)
                 self.animations['idle'].append(frame)
 
-            # Recortando a animação de Walk (Andar)
-            for i in range(8):
+            # --- RUN ---
+            frame_width = player_run.get_width() // frames_run
+            frame_height = player_run.get_height()
+            for i in range(frames_run):
                 frame = self.get_frame(player_run, i * frame_width, 0, frame_width, frame_height, scale)
                 self.animations['run'].append(frame)
 
-            # Recortando a animação de Jump (Pular)
-            # Se o spritesheet de pulo tiver menos quadros, ajuste o range
-            # Exemplo: se tiver apenas 2 quadros, use range(2)
-            # Caso tenha 8 quadros, use range(8)
-            for i in range(7):  # ou range(2) se for o caso
+            # --- JUMP ---
+            frame_width = player_jump.get_width() // frames_jump
+            frame_height = player_jump.get_height()
+            for i in range(frames_jump):
                 frame = self.get_frame(player_jump, i * frame_width, 0, frame_width, frame_height, scale)
                 self.animations['jump'].append(frame)
 
-
-        except FileNotFoundError:
-            # Fallback de segurança (mantém o quadrado vermelho se algo der errado)
+        except FileNotFoundError as e:
+            print(f"Erro ao carregar imagem: {e}")
             fallback = pygame.Surface((32, 64))
             fallback.fill((255, 50, 50))
             self.animations['idle'].append(fallback)
@@ -125,30 +120,26 @@ class Player(pygame.sprite.Sprite):
             self.jump()
 
     def get_status(self):
-        """Define o estado atual do personagem baseado no movimento."""
         if self.direction.y != 0:
-            self.status = 'jump' # Se estiver subindo ou caindo, está pulando
+            self.status = 'jump' 
         elif self.direction.x != 0:
-            self.status = 'run'  # Se está no chão e se movendo, está correndo
+            self.status = 'run'  
         else:
-            self.status = 'idle' # Se não é nenhum dos dois, está parado
+            self.status = 'idle' 
 
     def animate(self):
-        """Roda a animação correta e vira a imagem se necessário."""
         animation = self.animations[self.status]
         
-        # Aumenta o índice para trocar de quadro
         self.frame_index += self.animation_speed
         if self.frame_index >= len(animation):
             self.frame_index = 0
             
-        # Pega a imagem atual da lista
         image = animation[int(self.frame_index)]
         
         if self.facing_right:
             self.image = image
         else:
-            self.image = pygame.transform.flip(image, True, False) # True no X, False no Y
+            self.image = pygame.transform.flip(image, True, False) 
 
     def apply_gravity(self):
         self.direction.y += self.gravity
@@ -165,7 +156,7 @@ class Player(pygame.sprite.Sprite):
             self.is_invincible = True
             self.hurt_time = pygame.time.get_ticks()
             
-            if self.damage_sound: # Toca o som de dor
+            if self.damage_sound: 
                 self.damage_sound.play()
 
     def invincibility_timer(self):

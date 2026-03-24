@@ -1,24 +1,13 @@
 import pygame
+from background import ParallaxBackground
 from settings import *
-from sprites import Tile, Memory, Enemy, Goal
+from sprites import Tile, Memory, Enemy, Goal, Dirt, Water, StaticObject
 from player import Player
 from ui import HUD
+from levels import *
 
 COLLECT_SOUND_PATH = 'assets/sounds/collect.wav'
 BG_GAME_PATH = 'assets/backgrounds/bg_game.png'
-
-LEVEL_MAP = [
-#    Apresentação                  | Teste                                     | Clímax
-    '                                                                                                    ',
-    '                                                                                                    ',
-    '                                                                                                 ',
-    '                                                                                               ',
-    '                                                                                                 ',
-    '       C                                                                                  ',
-    '                                                                                 ',
-    '         M      E       X  M   X    E  G            ',
-    'XXXXXXXXXXXXXXXXXX   XXXXXXXXXXXXXXXXXXX'
-]
 
 class Level:
     def __init__(self, surface):
@@ -41,34 +30,66 @@ class Level:
 
         # Carrega o background da Gameplay
         try:
-            self.bg_image = pygame.image.load(BG_GAME_PATH).convert()
-            self.bg_image = pygame.transform.scale(self.bg_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
+            self.collect_sound = pygame.mixer.Sound(COLLECT_SOUND_PATH)
+            self.collect_sound.set_volume(0.6)
         except FileNotFoundError:
-            self.bg_image = None
+            self.collect_sound = None
+
+        # --- NOVO: Inicializa o Parallax ---
+        self.parallax = ParallaxBackground(SCREEN_WIDTH, SCREEN_HEIGHT)
             
         self.setup_level(LEVEL_MAP)
 
     def setup_level(self, layout):
+        self.tiles = pygame.sprite.Group()
+        self.memories = pygame.sprite.Group()
+        self.enemies = pygame.sprite.Group()
+        self.goal = pygame.sprite.GroupSingle()
+        self.objects = pygame.sprite.Group()
+        
         for row_index, row in enumerate(layout):
             for col_index, cell in enumerate(row):
                 x = col_index * TILE_SIZE
                 y = row_index * TILE_SIZE
                 
                 if cell == 'X':
+                    # Cria superfície (grama)
                     tile = Tile((x, y), TILE_SIZE)
                     self.tiles.add(tile)
-                elif cell == 'C':
+                
+                elif cell == 'D': # Novo bloco de terra
+                    # Cria preenchimento (terra)
+                    dirt_tile = Dirt((x, y), TILE_SIZE)
+                    self.tiles.add(dirt_tile) # Adiciona no mesmo grupo para colisões
+
+                elif cell == 'P': 
                     player_sprite = Player((x, y))
                     self.player.add(player_sprite)
-                elif cell == 'M':
-                    memory_sprite = Memory((x, y), TILE_SIZE)
-                    self.memories.add(memory_sprite)
+                
                 elif cell == 'E':
                     enemy_sprite = Enemy((x, y), TILE_SIZE)
                     self.enemies.add(enemy_sprite)
+                
+                elif cell == 'M':
+                    memory_sprite = Memory((x, y), TILE_SIZE)
+                    self.memories.add(memory_sprite)
+                
                 elif cell == 'G':
                     goal_sprite = Goal((x, y), TILE_SIZE)
                     self.goal.add(goal_sprite)
+
+                elif cell == 'W':
+                    water_tile = Water((x, y), TILE_SIZE)
+                    self.tiles.add(water_tile)
+                
+                elif cell in ['1', '2', '3']:
+                    # pos = (x,y), folder = 'Trees', image = '1.png', etc.
+                    tree = StaticObject((x, y), 'Trees', f'{cell}.png', TILE_SIZE)
+                    self.objects.add(tree)
+                elif cell in ['4', '5', '6']:
+                    # pos = (x,y), folder = 'Trees', image = '1.png', etc.
+                    tree = StaticObject((x, y), 'Bushes', f'{cell}.png', TILE_SIZE)
+                    self.objects.add(tree)
 
     def scroll_x(self):
         player = self.player.sprite
@@ -138,14 +159,14 @@ class Level:
         return False
 
     def run(self):
-        # Desenha o background primeiro
-        if self.bg_image:
-            self.display_surface.blit(self.bg_image, (0, 0))
-        else:
-            self.display_surface.fill((30, 80, 40))
+        self.parallax.update(self.world_shift)
+        self.parallax.draw(self.display_surface)
         
         self.tiles.update(self.world_shift)
         self.tiles.draw(self.display_surface)
+
+        self.objects.update(self.world_shift)
+        self.objects.draw(self.display_surface)
         
         self.memories.update(self.world_shift)
         self.memories.draw(self.display_surface)
@@ -165,7 +186,11 @@ class Level:
         self.check_collectibles()
         self.check_damage()
         
-        self.player.draw(self.display_surface)
+        player = self.player.sprite
+        # Cria um retângulo virtual para a arte, centralizando-o sobre os pés do hitbox
+        visual_rect = player.image.get_rect(midbottom=player.rect.midbottom)
+        # Desenha a imagem na tela usando a posição do retângulo visual
+        self.display_surface.blit(player.image, visual_rect)
         
         self.hud.show_health(self.player.sprite.current_health, self.player.sprite.max_health)
         self.hud.show_memories(self.player.sprite.memories)

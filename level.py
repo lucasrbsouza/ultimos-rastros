@@ -90,6 +90,8 @@ class Level:
                     # pos = (x,y), folder = 'Trees', image = '1.png', etc.
                     tree = StaticObject((x, y), 'Bushes', f'{cell}.png', TILE_SIZE)
                     self.objects.add(tree)
+        for enemy in self.enemies:
+          enemy.player_ref = self.player.sprite
 
     def scroll_x(self):
         player = self.player.sprite
@@ -120,16 +122,25 @@ class Level:
                     player.rect.right = sprite.rect.left
 
     def vertical_movement_collision(self):
-        player = self.player.sprite
-        player.apply_gravity()
+        self.player.sprite.apply_gravity()
+
         for sprite in self.tiles.sprites():
-            if sprite.rect.colliderect(player.rect):
-                if player.direction.y > 0: 
-                    player.rect.bottom = sprite.rect.top
-                    player.direction.y = 0 
-                elif player.direction.y < 0: 
-                    player.rect.top = sprite.rect.bottom
-                    player.direction.y = 0
+            if sprite.rect.colliderect(self.player.sprite.rect):
+                
+                # Caindo — pousa em cima da plataforma
+                if self.player.sprite.direction.y > 0:
+                    self.player.sprite.rect.bottom = sprite.rect.top
+                    self.player.sprite.direction.y = 0
+                    self.player.sprite.on_ground = True   # ← aterrisou
+
+                # Subindo — bateu embaixo da plataforma
+                elif self.player.sprite.direction.y < 0:
+                    self.player.sprite.rect.top = sprite.rect.bottom
+                    self.player.sprite.direction.y = 1   # ← era 0, agora inicia a queda imediatamente
+
+        # Se não encostou em nada caindo, está no ar
+        if self.player.sprite.direction.y != 0:
+            self.player.sprite.on_ground = False
 
     def check_collectibles(self):
         player = self.player.sprite

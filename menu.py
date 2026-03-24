@@ -1,6 +1,7 @@
 import pygame
 from settings import *
 from ui import Button
+import math, random
 
 BG_MENU_PATH = 'assets/backgrounds/bg_menu.png'
 BG_GAMEOVER_PATH = 'assets/backgrounds/bg_gameover.png'
@@ -9,29 +10,176 @@ BG_VICTORY_PATH = 'assets/backgrounds/bg_victory.png'
 class MainMenu:
     def __init__(self, screen):
         self.screen = screen
-        self.font_title = pygame.font.Font(None, 72)
-        self.font_button = pygame.font.Font(None, 36)
+        self.clock_ticks = 0
 
-        btn_width = 200
-        btn_height = 50
-        center_x = (SCREEN_WIDTH // 2) - (btn_width // 2)
+        # --- Fontes ---
+        self.font_title    = pygame.font.Font(None, 112)
+        self.font_subtitle = pygame.font.Font(None, 32)
+        self.font_button   = pygame.font.Font(None, 36)
 
-        self.btn_play = Button(center_x, 250, btn_width, btn_height, "Jogar", self.font_button)
-        self.btn_credits = Button(center_x, 320, btn_width, btn_height, "Créditos", self.font_button)
-        self.btn_quit = Button(center_x, 390, btn_width, btn_height, "Sair", self.font_button)
-
-        # Carrega o background do Menu
+        # --- Background ---
         try:
-            self.bg_image = pygame.image.load(BG_MENU_PATH).convert()
-            self.bg_image = pygame.transform.scale(self.bg_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
+            self.bg_image = pygame.transform.scale(
+                pygame.image.load(BG_MENU_PATH).convert(),
+                (SCREEN_WIDTH, SCREEN_HEIGHT)
+            )
         except FileNotFoundError:
             self.bg_image = None
 
+        # --- Botões (entram escalonados da direita) ---
+        btn_w, btn_h = 230, 50
+        cx = SCREEN_WIDTH // 2 - btn_w // 2
+        base_y = SCREEN_HEIGHT // 2 + 40
+        self.btn_play    = Button(cx, base_y,        btn_w, btn_h, "Jogar",    self.font_button)
+        self.btn_credits = Button(cx, base_y + 70,   btn_w, btn_h, "Créditos", self.font_button)
+        self.btn_quit    = Button(cx, base_y + 140,  btn_w, btn_h, "Sair",     self.font_button)
+
+        # offsets de entrada (deslizam da direita para o centro)
+        self._btn_offsets = [160, 160, 160]  # mantém — eles ainda vão deslizar
+        self._btn_delays  = [0, 0, 0]        # ← era [0, 18, 34] — todos começam junto   # frames de atraso por botão
+
+        # --- Partículas (vaga-lumes verdes subindo) ---
+        self.particles = [self._new_particle(random.randint(0, SCREEN_HEIGHT))
+                          for _ in range(60)]
+
+        # --- Folhas decorativas orbitando o título ---
+        self.leaves = [
+            {
+                "angle": random.uniform(0, math.pi * 2),
+                "dist":  random.uniform(200, 340),
+                "speed": random.uniform(0.003, 0.008) * random.choice([-1, 1]),
+                "size":  random.uniform(3, 6),
+                "color": random.choice([
+                    (80, 180, 90), (100, 220, 110),
+                    (60, 160, 80), (140, 255, 140),
+                ]),
+            }
+            for _ in range(20)
+        ]
+
+        # --- Vinheta (bordas escuras permanentes) ---
+        self.vignette = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        for i in range(80):
+            t = i / 80
+            alpha = int(160 * (t ** 2.2))
+            rw = int(SCREEN_WIDTH  * 0.9 * (1 - t * 0.35))
+            rh = int(SCREEN_HEIGHT * 0.9 * (1 - t * 0.35))
+            pygame.draw.ellipse(
+                self.vignette,
+                (0, 0, 0, alpha),
+                (SCREEN_WIDTH  // 2 - rw,
+                 SCREEN_HEIGHT // 2 - rh,
+                 rw * 2, rh * 2)
+            )
+
+        # --- Animação ---
+        self.fade_alpha     = 255
+        self.title_alpha    = 255
+        self.subtitle_alpha = 255
+
+    # ── helpers ─────────────────────────────────────────────────────────────
+    def _new_particle(self, start_y=None):
+        return {
+            "x":     random.uniform(0, SCREEN_WIDTH),
+            "y":     start_y if start_y is not None else SCREEN_HEIGHT + 5,
+            "speed": random.uniform(0.3, 1.0),
+            "size":  random.uniform(1.5, 3.5),
+            "alpha": random.randint(80, 200),
+            "phase": random.uniform(0, math.pi * 2),
+            "color": random.choice([
+                (100, 220, 120), (140, 255, 150),
+                (80,  200, 100), (180, 255, 180),
+                (200, 240, 140),
+            ]),
+        }
+
+    def _draw_particles(self):
+        surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        t = self.clock_ticks * 0.015
+        for p in self.particles:
+            p["y"] -= p["speed"]
+            p["x"] += math.sin(t + p["phase"]) * 0.6
+            if p["y"] < -10:
+                p.update(self._new_particle())
+            r, g, b = p["color"]
+            pygame.draw.circle(surf, (r, g, b, 28),
+                               (int(p["x"]), int(p["y"])), int(p["size"] * 2.8))
+            pygame.draw.circle(surf, (r, g, b, p["alpha"]),
+                               (int(p["x"]), int(p["y"])), int(p["size"]))
+        self.screen.blit(surf, (0, 0))
+
+    def _draw_leaves(self):
+        """Pontos de luz orbitando o título em elipse achatada."""
+        cx = SCREEN_WIDTH  // 2
+        cy = SCREEN_HEIGHT // 2 - 130
+        surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        for lf in self.leaves:
+            lf["angle"] += lf["speed"]
+            lx = cx + math.cos(lf["angle"]) * lf["dist"]
+            ly = cy + math.sin(lf["angle"]) * lf["dist"] * 0.28
+            r, g, b = lf["color"]
+            pygame.draw.circle(surf, (r, g, b, 35), (int(lx), int(ly)), int(lf["size"] * 2.2))
+            pygame.draw.circle(surf, (r, g, b, 200), (int(lx), int(ly)), int(lf["size"]))
+        self.screen.blit(surf, (0, 0))
+
+    def _draw_glow_line(self, y, width=460, color=(80, 180, 100)):
+        surf = pygame.Surface((width, 4), pygame.SRCALPHA)
+        for i in range(width):
+            fade = math.sin((i / width) * math.pi) ** 1.5
+            r, g, b = color
+            surf.set_at((i, 1), (r, g, b, int(fade * 190)))
+            surf.set_at((i, 2), (r, g, b, int(fade * 70)))
+        self.screen.blit(surf, (SCREEN_WIDTH // 2 - width // 2, y))
+
+    def _draw_title(self, text, cx, cy, alpha):
+        font = pygame.font.Font(None, 112)
+        pulse = 0.5 + 0.5 * math.sin(self.clock_ticks * 0.025)
+        color = (
+            int(160 + 50 * pulse),
+            int(225 + 30 * pulse),
+            int(165 + 40 * pulse),
+        )
+        # camadas de glow verde
+        for off, op in [(10, 18), (6, 45), (3, 85)]:
+            g = font.render(text, True, (80, 200, 100))
+            g.set_alpha(int(op * alpha / 255))
+            gr = g.get_rect(center=(cx + off // 2, cy + off // 2))
+            self.screen.blit(g, gr)
+        # texto principal
+        ts = font.render(text, True, color)
+        ts.set_alpha(alpha)
+        self.screen.blit(ts, ts.get_rect(center=(cx, cy)))
+
+    def _draw_button_with_offset(self, btn, offset_x, alpha):
+        """Desenha botão deslocado horizontalmente com fade."""
+        # salva posição original
+        orig_x = btn.rect.x
+        btn.rect.x += int(offset_x)
+        btn.draw(self.screen)
+        btn.rect.x = orig_x
+        # fade de entrada
+        if alpha < 255:
+            fade = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+            fade.fill((10, 18, 12))
+            fade.set_alpha(255 - alpha)
+            self.screen.blit(fade, (0, 0))
+
+    # ── ciclo principal ──────────────────────────────────────────────────────
     def update(self):
+        self.clock_ticks += 1
+        t = self.clock_ticks
+
         mouse_pos = pygame.mouse.get_pos()
         self.btn_play.update(mouse_pos)
         self.btn_credits.update(mouse_pos)
         self.btn_quit.update(mouse_pos)
+
+        # ← fade_alpha, title_alpha e subtitle_alpha removidos daqui
+
+        # botões ainda deslizam (efeito mantido, mas rápido)
+        for i in range(3):
+            if t > self._btn_delays[i]:
+                self._btn_offsets[i] = max(0, self._btn_offsets[i] - 18)
 
     def handle_event(self, event):
         if self.btn_play.is_clicked(event):
@@ -43,45 +191,201 @@ class MainMenu:
         return None
 
     def draw(self):
-        # Desenha a imagem se existir; caso contrário, usa a cor sólida
+        # ── background ──
         if self.bg_image:
             self.screen.blit(self.bg_image, (0, 0))
         else:
-            self.screen.fill(COLOR_BACKGROUND)
-        
-        title_text = self.font_title.render("Últimos Rastros", True, COLOR_TEXT)
-        title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, 150))
-        self.screen.blit(title_text, title_rect)
+            self.screen.fill((10, 18, 12))
 
-        self.btn_play.draw(self.screen)
-        self.btn_credits.draw(self.screen)
-        self.btn_quit.draw(self.screen)
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+        overlay.set_alpha(150)
+        overlay.fill((8, 16, 10))
+        self.screen.blit(overlay, (0, 0))
 
+        self._draw_particles()
+        self.screen.blit(self.vignette, (0, 0))
+        self._draw_leaves()
+
+        # ── título ──
+        title_cy = SCREEN_HEIGHT // 2 - 130
+        self._draw_title("Últimos Rastros", SCREEN_WIDTH // 2, title_cy, self.title_alpha)
+
+        # ── linha decorativa ──
+        self._draw_glow_line(SCREEN_HEIGHT // 2 - 60)
+
+        # ── subtítulo pulsante ──
+        pulse = 0.5 + 0.5 * math.sin(self.clock_ticks * 0.04)
+        sub_color = (int(120 + 40 * pulse), int(190 + 30 * pulse), int(130 + 30 * pulse))
+        sub_surf = pygame.font.Font(None, 32).render(
+            "Uma jornada de memórias perdidas", True, sub_color
+        )
+        sub_surf.set_alpha(self.subtitle_alpha)
+        sub_rect = sub_surf.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 28))
+        self.screen.blit(sub_surf, sub_rect)
+
+        # ── botões deslizando ──
+        buttons = [self.btn_play, self.btn_credits, self.btn_quit]
+        for i, btn in enumerate(buttons):
+            off   = self._btn_offsets[i]
+            alpha = int(255 * (1 - off / 160))
+            orig_x = btn.rect.x
+            btn.rect.x += int(off)
+            btn.draw(self.screen)
+            btn.rect.x = orig_x
+            if alpha < 255:
+                fade = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+                fade.fill((8, 16, 10))
+                fade.set_alpha(255 - alpha)
+                self.screen.blit(fade, (0, 0))
 
 class GameOverMenu:
     def __init__(self, screen):
         self.screen = screen
-        self.font_title = pygame.font.Font(None, 72)
-        self.font_button = pygame.font.Font(None, 36)
+        self.clock_ticks = 0
 
-        btn_width = 250
-        btn_height = 50
-        center_x = (SCREEN_WIDTH // 2) - (btn_width // 2)
+        # --- Fontes ---
+        self.font_title    = pygame.font.Font(None, 96)
+        self.font_subtitle = pygame.font.Font(None, 34)
+        self.font_button   = pygame.font.Font(None, 36)
 
-        self.btn_retry = Button(center_x, 300, btn_width, btn_height, "Tentar Novamente", self.font_button)
-        self.btn_menu = Button(center_x, 370, btn_width, btn_height, "Menu Principal", self.font_button)
-
-        # Carrega o background de Game Over
+        # --- Background ---
         try:
-            self.bg_image = pygame.image.load(BG_GAMEOVER_PATH).convert()
-            self.bg_image = pygame.transform.scale(self.bg_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
+            self.bg_image = pygame.transform.scale(
+                pygame.image.load(BG_GAMEOVER_PATH).convert(),
+                (SCREEN_WIDTH, SCREEN_HEIGHT)
+            )
         except FileNotFoundError:
             self.bg_image = None
 
+        # --- Botões ---
+        btn_w, btn_h = 240, 50
+        cx = SCREEN_WIDTH // 2 - btn_w // 2
+        self.btn_retry = Button(cx, SCREEN_HEIGHT // 2 + 80,  btn_w, btn_h, "Tentar Novamente", self.font_button)
+        self.btn_menu  = Button(cx, SCREEN_HEIGHT // 2 + 148, btn_w, btn_h, "Menu Principal",   self.font_button)
+
+        # --- Partículas de cinza/brasa ---
+        self.particles = [self._new_particle(random.randint(0, SCREEN_HEIGHT))
+                          for _ in range(70)]
+
+        # --- Raios de "vinheta" pulsante ---
+        self.vignette = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        for i in range(80):
+            t = i / 80
+            alpha = int(180 * (t ** 2))
+            r = int(SCREEN_WIDTH  * 0.85 * (1 - t * 0.4))
+            pygame.draw.ellipse(
+                self.vignette,
+                (0, 0, 0, alpha),
+                (SCREEN_WIDTH  // 2 - r,
+                 SCREEN_HEIGHT // 2 - int(r * 0.6),
+                 r * 2, int(r * 1.2))
+            )
+
+        # --- Animação (rápida, lição aprendida) ---
+        self.fade_alpha     = 0
+        self.title_offset_y = -60    # cai do topo
+        self.subtitle_alpha = 0
+        self.btn_alpha      = 0
+        self.shake_timer    = 12     # frames de tremor inicial
+
+    # ── helpers ─────────────────────────────────────────────────────────────
+    def _new_particle(self, start_y=None):
+        """Brasas/cinzas subindo lentamente."""
+        return {
+            "x":     random.uniform(0, SCREEN_WIDTH),
+            "y":     start_y if start_y is not None else SCREEN_HEIGHT + 5,
+            "speed": random.uniform(0.4, 1.2),
+            "vx":    random.uniform(-0.4, 0.4),
+            "size":  random.uniform(1.5, 4.0),
+            "alpha": random.randint(60, 180),
+            "phase": random.uniform(0, math.pi * 2),
+            "color": random.choice([
+                (180, 40,  20),
+                (220, 80,  30),
+                (140, 30,  15),
+                (100, 100, 100),
+                (160, 160, 160),
+            ]),
+        }
+
+    def _draw_particles(self):
+        surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        t = self.clock_ticks * 0.018
+        for p in self.particles:
+            p["y"] -= p["speed"]
+            p["x"] += math.sin(t + p["phase"]) * 0.5 + p["vx"]
+            if p["y"] < -10:
+                p.update(self._new_particle())
+            r, g, b = p["color"]
+            # halo
+            pygame.draw.circle(surf, (r, g, b, 25),
+                               (int(p["x"]), int(p["y"])), int(p["size"] * 2.5))
+            # núcleo
+            pygame.draw.circle(surf, (r, g, b, p["alpha"]),
+                               (int(p["x"]), int(p["y"])), int(p["size"]))
+        self.screen.blit(surf, (0, 0))
+
+    def _draw_glow_line(self, y, width=500, color=(160, 30, 20)):
+        surf = pygame.Surface((width, 4), pygame.SRCALPHA)
+        for i in range(width):
+            fade = math.sin((i / width) * math.pi) ** 1.5
+            r, g, b = color
+            surf.set_at((i, 1), (r, g, b, int(fade * 200)))
+            surf.set_at((i, 2), (r, g, b, int(fade * 70)))
+        self.screen.blit(surf, (SCREEN_WIDTH // 2 - width // 2, y))
+
+    def _draw_panel(self, x, y, w, h):
+        panel = pygame.Surface((w, h), pygame.SRCALPHA)
+        panel.fill((10, 2, 2, 210))
+        self.screen.blit(panel, (x, y))
+        pulse = 0.5 + 0.5 * math.sin(self.clock_ticks * 0.045)
+        borda_alpha = int(100 + 100 * pulse)
+        pygame.draw.rect(self.screen,
+                         (160, 25, 15, borda_alpha),
+                         (x, y, w, h), 2, border_radius=8)
+
+    def _draw_title(self, text, cx, cy, offset_y, alpha):
+        font = pygame.font.Font(None, 96)
+        # shake nos primeiros frames
+        sx = random.randint(-2, 2) if self.shake_timer > 0 else 0
+        sy = random.randint(-2, 2) if self.shake_timer > 0 else 0
+
+        # 3 camadas de glow vermelho escuro
+        for off, op in [(10, 20), (6, 50), (3, 90)]:
+            g = font.render(text, True, (200, 0, 0))
+            g.set_alpha(int(op * alpha / 255))
+            gr = g.get_rect(center=(cx + off // 2 + sx, cy + offset_y + off // 2 + sy))
+            self.screen.blit(g, gr)
+
+        # texto principal vermelho
+        title_surf = font.render(text, True, (230, 60, 50))
+        title_surf.set_alpha(alpha)
+        tr = title_surf.get_rect(center=(cx + sx, cy + offset_y + sy))
+        self.screen.blit(title_surf, tr)
+
+    # ── ciclo principal ──────────────────────────────────────────────────────
     def update(self):
+        self.clock_ticks += 1
+        t = self.clock_ticks
+
         mouse_pos = pygame.mouse.get_pos()
         self.btn_retry.update(mouse_pos)
         self.btn_menu.update(mouse_pos)
+
+        if self.shake_timer > 0:
+            self.shake_timer -= 1
+
+        self.fade_alpha = min(255, self.fade_alpha + 12)
+
+        # título desce do topo
+        if self.title_offset_y < 0:
+            self.title_offset_y = min(0, self.title_offset_y + 5)
+
+        if t > 15:
+            self.subtitle_alpha = min(255, self.subtitle_alpha + 12)
+
+        if t > 25:
+            self.btn_alpha = min(255, self.btn_alpha + 12)
 
     def handle_event(self, event):
         if self.btn_retry.is_clicked(event):
@@ -91,43 +395,220 @@ class GameOverMenu:
         return None
 
     def draw(self):
+        # ── background ──
         if self.bg_image:
             self.screen.blit(self.bg_image, (0, 0))
         else:
-            self.screen.fill((50, 15, 15)) 
-        
-        title_text = self.font_title.render("A Floresta Esqueceu...", True, (255, 100, 100))
-        title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, 200))
-        self.screen.blit(title_text, title_rect)
+            self.screen.fill((18, 4, 4))
 
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+        overlay.set_alpha(170)
+        overlay.fill((12, 2, 2))
+        self.screen.blit(overlay, (0, 0))
+
+        self._draw_particles()
+
+        # vinheta pulsante nas bordas
+        pulse_v = 0.75 + 0.25 * math.sin(self.clock_ticks * 0.04)
+        self.vignette.set_alpha(int(220 * pulse_v))
+        self.screen.blit(self.vignette, (0, 0))
+
+        # ── painel central ──
+        panel_w, panel_h = 580, 360
+        panel_x = SCREEN_WIDTH  // 2 - panel_w // 2
+        panel_y = SCREEN_HEIGHT // 2 - panel_h // 2
+        self._draw_panel(panel_x, panel_y, panel_w, panel_h)
+
+        # ── título com queda + tremor ──
+        self._draw_title(
+            "A Floresta Esqueceu...",
+            SCREEN_WIDTH  // 2,
+            SCREEN_HEIGHT // 2 - 100,
+            self.title_offset_y,
+            self.fade_alpha
+        )
+
+        # ── linha decorativa ──
+        self._draw_glow_line(SCREEN_HEIGHT // 2 - 46)
+
+        # ── subtítulo ──
+        pulse_c = 0.5 + 0.5 * math.sin(self.clock_ticks * 0.05)
+        sub_color = (int(180 + 40 * pulse_c), int(60 + 20 * pulse_c), int(50 + 20 * pulse_c))
+        sub_surf = pygame.font.Font(None, 34).render(
+            "As memórias se perderam na escuridão", True, sub_color
+        )
+        sub_surf.set_alpha(self.subtitle_alpha)
+        sub_rect = sub_surf.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 10))
+        self.screen.blit(sub_surf, sub_rect)
+
+        # ── botões com fade-in ──
         self.btn_retry.draw(self.screen)
         self.btn_menu.draw(self.screen)
-
+        if self.btn_alpha < 255:
+            fade = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+            fade.fill((12, 2, 2))
+            fade.set_alpha(255 - self.btn_alpha)
+            self.screen.blit(fade, (0, 0))
 
 class VictoryMenu:
     def __init__(self, screen):
         self.screen = screen
-        self.font_title = pygame.font.Font(None, 72)
-        self.font_button = pygame.font.Font(None, 36)
+        self.clock_ticks = 0
 
-        btn_width = 250
-        btn_height = 50
-        center_x = (SCREEN_WIDTH // 2) - (btn_width // 2)
+        # --- Fontes ---
+        self.font_title    = pygame.font.Font(None, 108)
+        self.font_subtitle = pygame.font.Font(None, 38)
+        self.font_button   = pygame.font.Font(None, 36)
 
-        self.btn_menu = Button(center_x, 300, btn_width, btn_height, "Menu Principal", self.font_button)
-        self.btn_quit = Button(center_x, 370, btn_width, btn_height, "Sair do Jogo", self.font_button)
-
-        # Carrega o background de Vitória
+        # --- Background ---
         try:
-            self.bg_image = pygame.image.load(BG_VICTORY_PATH).convert()
-            self.bg_image = pygame.transform.scale(self.bg_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
+            self.bg_image = pygame.transform.scale(
+                pygame.image.load(BG_VICTORY_PATH).convert(),
+                (SCREEN_WIDTH, SCREEN_HEIGHT)
+            )
         except FileNotFoundError:
             self.bg_image = None
 
+        # --- Botões ---
+        btn_w, btn_h = 240, 50
+        cx = SCREEN_WIDTH // 2 - btn_w // 2
+        self.btn_menu = Button(cx, SCREEN_HEIGHT // 2 + 80,  btn_w, btn_h, "Menu Principal", self.font_button)
+        self.btn_quit = Button(cx, SCREEN_HEIGHT // 2 + 148, btn_w, btn_h, "Sair do Jogo",   self.font_button)
+
+        # --- Partículas de confete/ouro ---
+        self.particles = [self._new_particle(random.randint(0, SCREEN_HEIGHT))
+                          for _ in range(80)]
+
+        # --- Estrelas de brilho ao redor do título ---
+        self.stars = [{"angle": random.uniform(0, math.pi * 2),
+                       "dist":  random.uniform(160, 280),
+                       "speed": random.uniform(0.004, 0.012),
+                       "size":  random.uniform(2, 5),
+                       "color": random.choice([(255,215,0),(255,245,120),(255,180,50),(200,255,180)])}
+                      for _ in range(18)]
+
+        # --- Animação ---
+        self.fade_alpha    = 0
+        self.title_scale   = 0.3       # cresce até 1.0 no pop-in
+        self.subtitle_alpha = 0
+        self.btn_alpha     = 0
+
+    # ── helpers ─────────────────────────────────────────────────────────────
+    def _new_particle(self, start_y=None):
+        return {
+            "x":     random.uniform(0, SCREEN_WIDTH),
+            "y":     start_y if start_y is not None else -8,
+            "vy":    random.uniform(0.8, 2.4),      # cai para baixo
+            "vx":    random.uniform(-0.6, 0.6),
+            "size":  random.uniform(3, 7),
+            "alpha": random.randint(160, 255),
+            "rot":   random.uniform(0, 360),
+            "rot_v": random.uniform(-2, 2),
+            "color": random.choice([
+                (255, 215, 0), (255, 245, 100), (255, 140, 0),
+                (200, 255, 160), (140, 230, 255), (255, 180, 200),
+            ]),
+        }
+
+    def _draw_particles(self):
+        surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        for p in self.particles:
+            p["y"]   += p["vy"]
+            p["x"]   += p["vx"]
+            p["rot"] += p["rot_v"]
+            if p["y"] > SCREEN_HEIGHT + 10:
+                p.update(self._new_particle())
+
+            r, g, b = p["color"]
+            s = int(p["size"])
+            cx, cy = int(p["x"]), int(p["y"])
+            # losango simples como confete
+            pts = [
+                (cx,     cy - s),
+                (cx + s, cy    ),
+                (cx,     cy + s),
+                (cx - s, cy    ),
+            ]
+            pygame.draw.polygon(surf, (r, g, b, p["alpha"]), pts)
+        self.screen.blit(surf, (0, 0))
+
+    def _draw_stars(self):
+        """Estrelinhas orbitando o centro do título."""
+        cx = SCREEN_WIDTH  // 2
+        cy = SCREEN_HEIGHT // 2 - 120
+        surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        for st in self.stars:
+            st["angle"] += st["speed"]
+            sx = cx + math.cos(st["angle"]) * st["dist"]
+            sy = cy + math.sin(st["angle"]) * st["dist"] * 0.35  # elipse achatada
+            r, g, b = st["color"]
+            # halo
+            pygame.draw.circle(surf, (r, g, b, 40), (int(sx), int(sy)), int(st["size"] * 2.5))
+            # núcleo
+            pygame.draw.circle(surf, (r, g, b, 220), (int(sx), int(sy)), int(st["size"]))
+        self.screen.blit(surf, (0, 0))
+
+    def _draw_glow_line(self, y, width=520, color=(220, 170, 30)):
+        surf = pygame.Surface((width, 4), pygame.SRCALPHA)
+        for i in range(width):
+            t = i / width
+            fade = math.sin(t * math.pi) ** 1.5
+            r, g, b = color
+            surf.set_at((i, 1), (r, g, b, int(fade * 200)))
+            surf.set_at((i, 2), (r, g, b, int(fade * 80)))
+        self.screen.blit(surf, (SCREEN_WIDTH // 2 - width // 2, y))
+
+    def _draw_panel(self, x, y, w, h):
+        panel = pygame.Surface((w, h), pygame.SRCALPHA)
+        panel.fill((12, 8, 2, 200))
+        self.screen.blit(panel, (x, y))
+        pulse = 0.5 + 0.5 * math.sin(self.clock_ticks * 0.045)
+        borda_alpha = int(120 + 100 * pulse)
+        pygame.draw.rect(self.screen,
+                         (200, 160, 30, borda_alpha),
+                         (x, y, w, h), 2, border_radius=8)
+
+    def _draw_title_glow(self, text, cx, cy, scale, alpha):
+        """Título com pop-in de escala + halo dourado."""
+        base_size = int(108 * max(scale, 0.05))
+        font = pygame.font.Font(None, base_size)
+
+        # camadas de glow
+        for offset, op in [(10, 25), (6, 55), (3, 100)]:
+            glow_surf = font.render(text, True, (255, 200, 0))
+            glow_surf.set_alpha(int(op * alpha / 255))
+            gr = glow_surf.get_rect(center=(cx + offset // 2, cy + offset // 2))
+            self.screen.blit(glow_surf, gr)
+
+        # texto principal dourado
+        title_surf = font.render(text, True, (255, 228, 80))
+        title_surf.set_alpha(alpha)
+        tr = title_surf.get_rect(center=(cx, cy))
+        self.screen.blit(title_surf, tr)
+
+    # ── ciclo principal ──────────────────────────────────────────────────────
     def update(self):
+        self.clock_ticks += 1
+        t = self.clock_ticks
+
         mouse_pos = pygame.mouse.get_pos()
         self.btn_menu.update(mouse_pos)
         self.btn_quit.update(mouse_pos)
+
+        # fade-in geral: era +5  → agora +12  (chega em ~21 frames)
+        self.fade_alpha = min(255, self.fade_alpha + 12)
+
+        # pop-in do título: era +0.035 → agora +0.07
+        if self.title_scale < 1.0:
+            self.title_scale = min(1.0, self.title_scale + 0.07)
+
+        # subtítulo: era esperar 40 frames → agora 15
+        if t > 15:
+            self.subtitle_alpha = min(255, self.subtitle_alpha + 12)
+
+        # botões: era esperar 65 frames → agora 25
+        if t > 25:
+            self.btn_alpha = min(255, self.btn_alpha + 12)
 
     def handle_event(self, event):
         if self.btn_menu.is_clicked(event):
@@ -137,53 +618,183 @@ class VictoryMenu:
         return None
 
     def draw(self):
+        # ── background ──
         if self.bg_image:
             self.screen.blit(self.bg_image, (0, 0))
-
-            # 🔥 Overlay escuro (igual ao Credits)
-            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
-            overlay.set_alpha(150)  # pode ajustar (120–200)
-            overlay.fill((0, 0, 0))
-            self.screen.blit(overlay, (0, 0))
-
         else:
-            self.screen.fill((20, 50, 30)) 
-        
-        title_text = self.font_title.render("A Lenda Vive!", True, (255, 215, 0))
-        title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, 200))
+            self.screen.fill((14, 10, 2))
 
-        # sombra
-        shadow = self.font_title.render("A Lenda Vive!", True, (0, 0, 0))
-        self.screen.blit(shadow, (title_rect.x + 3, title_rect.y + 3))
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+        overlay.set_alpha(155)
+        overlay.fill((10, 6, 0))
+        self.screen.blit(overlay, (0, 0))
 
-        # texto principal
-        self.screen.blit(title_text, title_rect)
+        self._draw_particles()
 
+        # ── painel central ──
+        panel_w, panel_h = 580, 380
+        panel_x = SCREEN_WIDTH  // 2 - panel_w // 2
+        panel_y = SCREEN_HEIGHT // 2 - panel_h // 2
+        self._draw_panel(panel_x, panel_y, panel_w, panel_h)
+
+        # ── estrelas orbitando ──
+        self._draw_stars()
+
+        # ── título com pop-in e glow ──
+        title_cx = SCREEN_WIDTH  // 2
+        title_cy = SCREEN_HEIGHT // 2 - 100
+        self._draw_title_glow("A Lenda Vive!", title_cx, title_cy,
+                               self.title_scale, self.fade_alpha)
+
+        # ── linha decorativa ──
+        self._draw_glow_line(SCREEN_HEIGHT // 2 - 46)
+
+        # ── subtítulo ──
+        pulse = 0.5 + 0.5 * math.sin(self.clock_ticks * 0.05)
+        sub_color = (
+            int(200 + 40 * pulse),
+            int(190 + 30 * pulse),
+            int(120 + 30 * pulse),
+        )
+        sub_surf = pygame.font.Font(None, 38).render(
+            "Você completou a jornada", True, sub_color
+        )
+        sub_surf.set_alpha(self.subtitle_alpha)
+        sub_rect = sub_surf.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 14))
+        self.screen.blit(sub_surf, sub_rect)
+
+        # ── botões com fade-in ──
+        btn_overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
         self.btn_menu.draw(self.screen)
         self.btn_quit.draw(self.screen)
+        if self.btn_alpha < 255:
+            fade = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+            fade.fill((10, 6, 0))
+            fade.set_alpha(255 - self.btn_alpha)
+            self.screen.blit(fade, (0, 0))
 
 class CreditsMenu:
     def __init__(self, screen):
         self.screen = screen
-        self.font_title = pygame.font.Font(None, 72)
-        self.font_text = pygame.font.Font(None, 36)
-        self.font_button = pygame.font.Font(None, 36)
+        self.clock_ticks = 0
 
-        btn_width = 250
-        btn_height = 50
-        center_x = (SCREEN_WIDTH // 2) - (btn_width // 2)
+        # --- Fontes ---
+        self.font_title    = pygame.font.Font(None, 90)
+        self.font_label    = pygame.font.Font(None, 26)
+        self.font_value    = pygame.font.Font(None, 34)
+        self.font_button   = pygame.font.Font(None, 36)
 
-        self.btn_back = Button(center_x, 500, btn_width, btn_height, "Voltar", self.font_button)
-
+        # --- Background ---
         try:
-            self.bg_image = pygame.image.load(BG_MENU_PATH).convert()
-            self.bg_image = pygame.transform.scale(self.bg_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
+            self.bg_image = pygame.transform.scale(
+                pygame.image.load(BG_MENU_PATH).convert(),
+                (SCREEN_WIDTH, SCREEN_HEIGHT)
+            )
         except FileNotFoundError:
             self.bg_image = None
 
+        # --- Botão Voltar ---
+        btn_w, btn_h = 220, 48
+        self.btn_back = Button(
+            SCREEN_WIDTH // 2 - btn_w // 2,
+            SCREEN_HEIGHT - 100,
+            btn_w, btn_h, "<- Voltar", self.font_button
+        )
+
+        # --- Dados dos créditos (label, valor) ---
+        self.credits_data = [
+            ("PROJETO",      "Últimos Rastros"),
+            ("DESENVOLVEDOR","José Lucas Silva Souza"),
+            ("INSTITUIÇÃO",  "Icev – Instituto de Ensino Superior"),
+            ("DISCIPLINA",   "Desenvolvimento de Jogos"),
+            ("ANO",          "2026"),
+        ]
+
+        # --- Partículas (pirilampos/faíscas) ---
+        self.particles = [self._new_particle(random.randint(0, SCREEN_HEIGHT))
+                          for _ in range(55)]
+
+        # --- Animação de entrada ---
+        self.fade_alpha  = 0          # fade-in geral
+        self.line_timers = [0.0] * len(self.credits_data)  # por linha
+
+    # ── helpers ────────────────────────────────────────────────────────────
+    def _new_particle(self, start_y=None):
+        return {
+            "x":     random.uniform(0, SCREEN_WIDTH),
+            "y":     start_y if start_y is not None else SCREEN_HEIGHT + 5,
+            "speed": random.uniform(0.3, 1.1),
+            "size":  random.uniform(1.5, 3.5),
+            "alpha": random.randint(80, 220),
+            "phase": random.uniform(0, math.pi * 2),   # oscilação lateral
+            "color": random.choice([
+                (140, 220, 160), (180, 255, 200),
+                (100, 200, 230), (255, 240, 140),
+            ]),
+        }
+
+    def _draw_particles(self):
+        surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        t = self.clock_ticks * 0.015
+        for p in self.particles:
+            p["y"] -= p["speed"]
+            p["x"] += math.sin(t + p["phase"]) * 0.5
+            if p["y"] < -10:
+                p.update(self._new_particle())
+
+            r, g, b = p["color"]
+            # halo externo
+            pygame.draw.circle(surf, (r, g, b, 30),
+                               (int(p["x"]), int(p["y"])),
+                               int(p["size"] * 2.8))
+            # núcleo
+            pygame.draw.circle(surf, (r, g, b, p["alpha"]),
+                               (int(p["x"]), int(p["y"])),
+                               int(p["size"]))
+        self.screen.blit(surf, (0, 0))
+
+    def _draw_glow_line(self, y, width=480, color=(100, 200, 140)):
+        """Linha decorativa com brilho central."""
+        surf = pygame.Surface((width, 4), pygame.SRCALPHA)
+        for i in range(width):
+            t = i / width  # 0 → 1
+            fade = math.sin(t * math.pi) ** 1.5
+            r, g, b = color
+            surf.set_at((i, 1), (r, g, b, int(fade * 180)))
+            surf.set_at((i, 2), (r, g, b, int(fade * 80)))
+        self.screen.blit(surf, (SCREEN_WIDTH // 2 - width // 2, y))
+
+    def _draw_panel(self, x, y, w, h, alpha=210):
+        """Painel escuro semi-transparente com borda brilhante."""
+        # fundo
+        panel = pygame.Surface((w, h), pygame.SRCALPHA)
+        panel.fill((8, 20, 14, alpha))
+        self.screen.blit(panel, (x, y))
+        # borda com pulso
+        pulse = 0.5 + 0.5 * math.sin(self.clock_ticks * 0.04)
+        borda_alpha = int(100 + 80 * pulse)
+        pygame.draw.rect(self.screen,
+                         (80, 180, 110, borda_alpha),
+                         (x, y, w, h), 2, border_radius=6)
+
+    def _eased_alpha(self, timer, duration=40):
+        t = min(timer / duration, 1.0)
+        return int(255 * (t * t * (3 - 2 * t)))   # smoothstep
+
+    # ── ciclo principal ─────────────────────────────────────────────────────
     def update(self):
+        self.clock_ticks += 1
         mouse_pos = pygame.mouse.get_pos()
         self.btn_back.update(mouse_pos)
+
+        # fade-in geral
+        if self.fade_alpha < 255:
+            self.fade_alpha = min(255, self.fade_alpha + 6)
+
+        # linhas aparecem em cascata
+        for i in range(len(self.line_timers)):
+            if self.clock_ticks > 30 + i * 18:
+                self.line_timers[i] = min(self.line_timers[i] + 2, 40)
 
     def handle_event(self, event):
         if self.btn_back.is_clicked(event):
@@ -191,34 +802,65 @@ class CreditsMenu:
         return None
 
     def draw(self):
+        # ── background ──
         if self.bg_image:
             self.screen.blit(self.bg_image, (0, 0))
-            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
-            overlay.set_alpha(180)
-            overlay.fill((0, 0, 0))
-            self.screen.blit(overlay, (0, 0))
         else:
-            self.screen.fill((20, 30, 25)) 
-        
-        # Título
-        title_text = self.font_title.render("Créditos", True, COLOR_TEXT)
-        title_rect = title_text.get_rect(center=(SCREEN_WIDTH // 2, 100))
-        self.screen.blit(title_text, title_rect)
+            self.screen.fill((10, 18, 14))
 
-        # Informações do GDD
-        credits_info = [
-            "Projeto: Últimos Rastros",
-            "Desenvolvedor: José Lucas Silva Souza",
-            "Instituição: Icev - Instituto de Ensino Superior",
-            "Disciplina: Desenvolvimento de Jogos",
-            "Ano: 2026"
-        ]
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+        overlay.set_alpha(165)
+        overlay.fill((5, 14, 10))
+        self.screen.blit(overlay, (0, 0))
 
-        start_y = 200
-        for line in credits_info:
-            text_surf = self.font_text.render(line, True, (200, 220, 200))
-            text_rect = text_surf.get_rect(center=(SCREEN_WIDTH // 2, start_y))
-            self.screen.blit(text_surf, text_rect)
-            start_y += 50
+        self._draw_particles()
 
+        # ── painel central ──
+        panel_w, panel_h = 620, 430
+        panel_x = SCREEN_WIDTH  // 2 - panel_w // 2
+        panel_y = SCREEN_HEIGHT // 2 - panel_h // 2 + 20
+        self._draw_panel(panel_x, panel_y, panel_w, panel_h)
+
+        # ── título ──
+        pulse_t = 0.5 + 0.5 * math.sin(self.clock_ticks * 0.03)
+        title_color = (
+            int(160 + 60 * pulse_t),
+            int(220 + 35 * pulse_t),
+            int(170 + 40 * pulse_t),
+        )
+        title_surf = self.font_title.render("Créditos", True, title_color)
+        title_rect = title_surf.get_rect(center=(SCREEN_WIDTH // 2, panel_y - 52))
+        title_surf.set_alpha(self.fade_alpha)
+        self.screen.blit(title_surf, title_rect)
+
+        # linha decorativa abaixo do título
+        self._draw_glow_line(panel_y - 22)
+
+        # ── linhas de crédito ──
+        row_h   = 72
+        start_y = panel_y + 38
+        pad_x   = 48
+
+        for i, (label, value) in enumerate(self.credits_data):
+            alpha = self._eased_alpha(self.line_timers[i])
+            base_y = start_y + i * row_h
+
+            # sublabel (categoria)
+            lbl_surf = self.font_label.render(label, True, (100, 180, 130))
+            lbl_surf.set_alpha(alpha)
+            self.screen.blit(lbl_surf, (panel_x + pad_x, base_y))
+
+            # valor
+            val_surf = self.font_value.render(value, True, (230, 255, 235))
+            val_surf.set_alpha(alpha)
+            self.screen.blit(val_surf, (panel_x + pad_x, base_y + 22))
+
+            # separador sutil entre linhas (exceto a última)
+            if i < len(self.credits_data) - 1:
+                sep = pygame.Surface((panel_w - pad_x * 2, 1), pygame.SRCALPHA)
+                sep.fill((80, 140, 100, 60))
+                self.screen.blit(sep, (panel_x + pad_x, base_y + 62))
+
+        # ── botão voltar ──
+        btn_surf = pygame.Surface((SCREEN_WIDTH, 80), pygame.SRCALPHA)
         self.btn_back.draw(self.screen)

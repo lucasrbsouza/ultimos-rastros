@@ -30,6 +30,14 @@ class Player(pygame.sprite.Sprite):
         self.gravity = 0.8
         self.jump_speed = -16
 
+        self.on_ground = False
+
+        # --- Double-tap para correr ---
+        self._last_tap_key  = None   # qual tecla foi pressionada por último
+        self._last_tap_time = 0      # momento do último tap
+        self._double_tap_window = 300  # ms entre os dois taps
+        self.is_running = False
+            
         # 3. Status e Direção
         self.status = 'idle'
         self.facing_right = True
@@ -60,53 +68,44 @@ class Player(pygame.sprite.Sprite):
         return image
 
     def import_character_assets(self):
-        """Carrega e fatia os spritesheets de forma dinâmica (Clean Code)."""
-        self.animations = {'idle': [], 'run': [], 'jump': []}
-        scale = 0.80 
+        self.animations = {'idle': [], 'walk': [], 'run': [], 'jump': []}  # ← adiciona 'walk'
+        scale = 0.80
 
         try:
             player_idle = pygame.image.load(PLAYER_IDLE_PATH).convert_alpha()
-            player_run = pygame.image.load(PLAYER_RUN_PATH).convert_alpha()
+            player_walk = pygame.image.load(PLAYER_WALK_PATH).convert_alpha()
+            player_run  = pygame.image.load(PLAYER_RUN_PATH).convert_alpha()
             player_jump = pygame.image.load(PLAYER_JUMP_PATH).convert_alpha()
 
-            # --- ATENÇÃO AQUI ---
-            # Verifique nas suas imagens quantos desenhos tem em cada uma e coloque abaixo:
-            frames_idle = 5   # Exemplo: Se Idle.png tiver 6 desenhos, mude para 6
-            frames_run = 8    
-            frames_jump = 7   
+            frames_idle = 5
+            frames_walk = 8 
+            frames_run  = 8
+            frames_jump = 7
 
-            # --- IDLE ---
-            frame_width = player_idle.get_width() // frames_idle
-            frame_height = player_idle.get_height()
-            for i in range(frames_idle):
-                frame = self.get_frame(player_idle, i * frame_width, 0, frame_width, frame_height, scale)
-                self.animations['idle'].append(frame)
-
-            # --- RUN ---
-            frame_width = player_run.get_width() // frames_run
-            frame_height = player_run.get_height()
-            for i in range(frames_run):
-                frame = self.get_frame(player_run, i * frame_width, 0, frame_width, frame_height, scale)
-                self.animations['run'].append(frame)
-
-            # --- JUMP ---
-            frame_width = player_jump.get_width() // frames_jump
-            frame_height = player_jump.get_height()
-            for i in range(frames_jump):
-                frame = self.get_frame(player_jump, i * frame_width, 0, frame_width, frame_height, scale)
-                self.animations['jump'].append(frame)
+            for sheet, key, frames in [
+                (player_idle, 'idle', frames_idle),
+                (player_walk, 'walk', frames_walk),
+                (player_run,  'run',  frames_run),
+                (player_jump, 'jump', frames_jump),
+            ]:
+                fw = sheet.get_width() // frames
+                fh = sheet.get_height()
+                for i in range(frames):
+                    self.animations[key].append(
+                        self.get_frame(sheet, i * fw, 0, fw, fh, scale)
+                    )
 
         except FileNotFoundError as e:
             print(f"Erro ao carregar imagem: {e}")
             fallback = pygame.Surface((32, 64))
             fallback.fill((255, 50, 50))
-            self.animations['idle'].append(fallback)
-            self.animations['run'].append(fallback)
-            self.animations['jump'].append(fallback)
+            for key in self.animations:
+                self.animations[key].append(fallback)
 
     def get_input(self):
         keys = pygame.key.get_pressed()
 
+        # ── Movimento ──────────────────────────────────────────────────
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
             self.direction.x = 1
             self.facing_right = True
@@ -115,15 +114,43 @@ class Player(pygame.sprite.Sprite):
             self.facing_right = False
         else:
             self.direction.x = 0
+            self.is_running = False  # parou → reseta corrida
 
-        if (keys[pygame.K_UP] or keys[pygame.K_w] or keys[pygame.K_SPACE]) and self.direction.y == 0:
+        # ── Pulo ───────────────────────────────────────────────────────
+        if (keys[pygame.K_UP] or keys[pygame.K_w] or keys[pygame.K_SPACE]) and self.on_ground:
             self.jump()
+    
+    def handle_event(self, event):
+        if event.type == pygame.KEYDOWN:
+            now = pygame.time.get_ticks()
+            if event.key in (pygame.K_RIGHT, pygame.K_d, pygame.K_LEFT, pygame.K_a):
+                
+                # Mesma direção pressionada dentro da janela? → É double-tap
+                mesma_direita = (event.key in (pygame.K_RIGHT, pygame.K_d) and
+                                self._last_tap_key in (pygame.K_RIGHT, pygame.K_d))
+                mesma_esquerda = (event.key in (pygame.K_LEFT, pygame.K_a) and
+                                self._last_tap_key in (pygame.K_LEFT, pygame.K_a))
+
+                if (mesma_direita or mesma_esquerda) and (now - self._last_tap_time <= self._double_tap_window):
+                    self.is_running = True
+                else:
+                    self.is_running = False  # primeiro tap → ainda não corre
+
+                self._last_tap_time = now
+                self._last_tap_key  = event.key
+
+        # Soltou a tecla direcional → reseta corrida
+        if event.type == pygame.KEYUP:
+            if event.key in (pygame.K_RIGHT, pygame.K_d, pygame.K_LEFT, pygame.K_a):
+                self.is_running = False
 
     def get_status(self):
         if self.direction.y != 0:
-            self.status = 'jump' 
+            self.status = 'jump'
+        elif self.is_running and self.direction.x != 0:
+            self.status = 'run'    # ← só ativa com double-tap
         elif self.direction.x != 0:
-            self.status = 'run'  
+            self.status = 'walk'   # ← novo status para andar devagar
         else:
             self.status = 'idle' 
 

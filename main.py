@@ -80,7 +80,8 @@ class Game:
                     
             elif self.current_state == "GAMEPLAY":
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                    self.change_state("MENU") 
+                    self.change_state("MENU")
+                self.level.player.sprite.handle_event(event)
             
             elif self.current_state == "GAMEOVER":
                 action = self.game_over_menu.handle_event(event)

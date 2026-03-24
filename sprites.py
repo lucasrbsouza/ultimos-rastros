@@ -125,37 +125,96 @@ class Memory(pygame.sprite.Sprite):
 class Enemy(pygame.sprite.Sprite):
     def __init__(self, pos, size):
         super().__init__()
-        
+
         try:
-            self.image = pygame.image.load(ENEMY_IMAGE_PATH).convert_alpha()
-            self.image = pygame.transform.scale(self.image, (size, size))
+            base = pygame.image.load(ENEMY_IMAGE_PATH).convert_alpha()
+            self.image_left  = pygame.transform.scale(base, (size, size))  
         except FileNotFoundError:
-            self.image = pygame.Surface((size, size))
-            self.image.fill((200, 50, 50)) 
-        self.rect = self.image.get_rect(topleft=pos)
+            self.image_right = pygame.Surface((size, size))
+            self.image_right.fill((200, 50, 50))
 
-        # Variáveis de Patrulha (Inteligência Artificial básica)
-        self.speed = 2
-        self.direction = -1 # 1 para a direita, -1 para a esquerda
+        # original já olha pra esquerda
+        self.image_right = pygame.transform.flip(self.image_left, True, False)
+        self.image = self.image_left
+        self.rect  = self.image.get_rect(topleft=pos)
+
+        # ── Origem (ponto de spawn — âncora da patrulha) ──────────────
+        self.origin_x = pos[0]
+
+        # ── Configurações ──────────────────────────────────────────────
+        self.patrol_speed  = 2
+        self.chase_speed   = 4
+        self.patrol_range  = 120   # pixels para cada lado da origem
+        self.detect_range  = 300   # distância para detectar o jogador
+        self.lose_range    = 450   # distância para desistir da perseguição
+        self.attack_range  = 20    # distância para causar dano (toque)
+
+        # ── Estado ─────────────────────────────────────────────────────
+        # 'patrol' → 'chase' → volta p/ 'patrol' se perder o jogador
+        self.state     = 'patrol'
+        self.direction = -1        # 1 = direita, -1 = esquerda
+
+        # ── Patrulha ───────────────────────────────────────────────────
         self.patrol_distance = 0
-        self.max_patrol = 60 # Quantidade de pixels que ele anda antes de virar
 
+        # ── Referência ao jogador (injetada pelo Level) ────────────────
+        self.player_ref = None     # Level faz: enemy.player_ref = player_sprite
+
+    # ── helpers ─────────────────────────────────────────────────────────
+    def _dist_to_player(self):
+        if self.player_ref is None:
+            return float('inf')
+        return abs(self.player_ref.rect.centerx - self.rect.centerx)
+
+    def _face(self, direction):
+        """Atualiza sprite sem acumular flips."""
+        self.direction = direction
+        self.image = self.image_right if direction == 1 else self.image_left
+
+    # ── estados ─────────────────────────────────────────────────────────
+    def _patrol(self):
+        self.rect.x += self.patrol_speed * self.direction
+        self.patrol_distance += self.patrol_speed
+
+        if self.patrol_distance >= self.patrol_range:
+            self._face(self.direction * -1)
+            self.patrol_distance = 0
+
+        # Detectou o jogador → perseguir
+        if self._dist_to_player() <= self.detect_range:
+            self.state = 'chase'
+            self.patrol_distance = 0
+
+    def _chase(self):
+        if self.player_ref is None:
+            self.state = 'patrol'
+            return
+
+        dist = self._dist_to_player()
+
+        # Perdeu o jogador → volta a patrulhar
+        if dist > self.lose_range:
+            self.state = 'patrol'
+            return
+
+        # Move em direção ao jogador
+        dx = self.player_ref.rect.centerx - self.rect.centerx
+        self._face(1 if dx > 0 else -1)
+
+        # Só se move se não está no alcance de ataque
+        if dist > self.attack_range:
+            self.rect.x += self.chase_speed * self.direction
+
+    # ── update ──────────────────────────────────────────────────────────
     def update(self, x_shift):
-        """Move o inimigo com a câmera E faz ele patrulhar."""
-        # 1. Movimento da câmera
-        self.rect.x += x_shift
-        
-        # 2. Movimento autônomo (Patrulha)
-        self.rect.x += self.speed * self.direction
-        self.patrol_distance += self.speed
-        
-        
-        if self.patrol_distance >= self.max_patrol:
-            self.direction *= -1 # Inverte a direção
-            self.patrol_distance = -self.max_patrol # Reinicia a contagem para voltar
-            
-            
-            self.image = pygame.transform.flip(self.image, True, False)
+        # câmera
+        self.rect.x    += x_shift
+        self.origin_x  += x_shift   # ancora junto com o mundo
+
+        if self.state == 'patrol':
+            self._patrol()
+        elif self.state == 'chase':
+            self._chase()
 
 class Goal(pygame.sprite.Sprite):
     def __init__(self, pos, size):

@@ -147,8 +147,18 @@ class Level:
         if player.is_invincible:
             return
 
-        if pygame.sprite.spritecollide(player, self.enemies, False):
-            player.take_damage(1)
+        hit_enemies = pygame.sprite.spritecollide(player, self.enemies, False)
+        if hit_enemies:
+            # Pega o primeiro inimigo que colidiu
+            enemy = hit_enemies[0]
+            
+            # Descobre de qual lado o inimigo está
+            if enemy.rect.centerx < player.rect.centerx:
+                knockback_direction = 1   # inimigo à esquerda → empurra para direita
+            else:
+                knockback_direction = -1  # inimigo à direita → empurra para esquerda
+            
+            player.take_damage(1, knockback_direction)
 
     def check_death(self):
         """Morre se cair no buraco OU se a vida zerar."""

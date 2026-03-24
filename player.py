@@ -112,7 +112,12 @@ class Player(pygame.sprite.Sprite):
     def get_input(self):
         keys = pygame.key.get_pressed()
 
-        # ── Movimento ──────────────────────────────────────────────────
+        # Knockback ativo — amortece e bloqueia input
+        if self.is_invincible:
+            self.direction.x *= 0.85
+            return
+
+        # Movimento horizontal
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
             self.direction.x = 1
             self.facing_right = True
@@ -121,9 +126,9 @@ class Player(pygame.sprite.Sprite):
             self.facing_right = False
         else:
             self.direction.x = 0
-            self.is_running = False  # parou → reseta corrida
+            self.is_running = False
 
-        # ── Pulo ───────────────────────────────────────────────────────
+        # Pulo
         if (keys[pygame.K_UP] or keys[pygame.K_w] or keys[pygame.K_SPACE]) and self.on_ground:
             self.jump()
     
@@ -184,11 +189,15 @@ class Player(pygame.sprite.Sprite):
         if self.jump_sound:
             self.jump_sound.play()
 
-    def take_damage(self, amount):
+    def take_damage(self, amount, knockback_direction=0):
         if not self.is_invincible:
             self.current_health -= amount
             self.is_invincible = True
             self.hurt_time = pygame.time.get_ticks()
+            
+            # Aplica o impulso de knockback
+            self.direction.x = knockback_direction * 6  # empurra horizontalmente
+            self.direction.y = -8                        # pequeno salto para cima
             
             if self.damage_sound: 
                 self.damage_sound.play()

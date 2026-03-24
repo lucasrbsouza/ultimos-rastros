@@ -28,14 +28,6 @@ class Level:
         except FileNotFoundError:
             self.collect_sound = None
 
-        # Carrega o background da Gameplay
-        try:
-            self.collect_sound = pygame.mixer.Sound(COLLECT_SOUND_PATH)
-            self.collect_sound.set_volume(0.6)
-        except FileNotFoundError:
-            self.collect_sound = None
-
-        # --- NOVO: Inicializa o Parallax ---
         self.parallax = ParallaxBackground(SCREEN_WIDTH, SCREEN_HEIGHT)
             
         self.setup_level(LEVEL_MAP)
@@ -151,6 +143,10 @@ class Level:
     def check_damage(self):
         """Verifica colisão com inimigos e aplica dano."""
         player = self.player.sprite
+
+        if player.is_invincible:
+            return
+
         if pygame.sprite.spritecollide(player, self.enemies, False):
             player.take_damage(1)
 

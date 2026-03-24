@@ -123,6 +123,7 @@ class Level:
 
     def vertical_movement_collision(self):
         self.player.sprite.apply_gravity()
+        self.player.sprite.on_ground = False  # reseta ANTES do loop, todo frame
 
         for sprite in self.tiles.sprites():
             if sprite.rect.colliderect(self.player.sprite.rect):
@@ -136,11 +137,7 @@ class Level:
                 # Subindo — bateu embaixo da plataforma
                 elif self.player.sprite.direction.y < 0:
                     self.player.sprite.rect.top = sprite.rect.bottom
-                    self.player.sprite.direction.y = 1   # ← era 0, agora inicia a queda imediatamente
-
-        # Se não encostou em nada caindo, está no ar
-        if self.player.sprite.direction.y != 0:
-            self.player.sprite.on_ground = False
+                    self.player.sprite.direction.y = 0  # só para, a gravidade faz o resto
 
     def check_collectibles(self):
         player = self.player.sprite
@@ -208,7 +205,7 @@ class Level:
         self.check_damage()
         
         player = self.player.sprite
-        # Cria um retângulo virtual para a arte, centralizando-o sobre os pés do hitbox
+        
         visual_rect = player.image.get_rect(midbottom=player.rect.midbottom)
         # Desenha a imagem na tela usando a posição do retângulo visual
         self.display_surface.blit(player.image, visual_rect)

@@ -45,6 +45,15 @@ class Player(pygame.sprite.Sprite):
         self._last_tap_time = 0      # momento do último tap
         self._double_tap_window = 300  # ms entre os dois taps
         self.is_running = False
+
+        # Velocidade atual — usada para acelerar gradualmente
+        self.current_speed = 5      # começa na velocidade de caminhada
+        self.walk_speed = 5         # velocidade ao andar
+        self.run_speed = 9          # velocidade ao correr
+
+        # Tolerância para não cancelar corrida ao soltar brevemente
+        self.run_release_buffer = 8    # frames de graça ao soltar a tecla
+        self.run_release_timer = 0     # contador regressivo
             
         # 3. Status e Direção
         self.status = 'idle'
@@ -134,7 +143,6 @@ class Player(pygame.sprite.Sprite):
             self.facing_right = False
         else:
             self.direction.x = 0
-            self.is_running = False
 
         # Pulo — registra intenção no buffer
         if keys[pygame.K_UP] or keys[pygame.K_w] or keys[pygame.K_SPACE]:
@@ -153,19 +161,18 @@ class Player(pygame.sprite.Sprite):
 
                 if (mesma_direita or mesma_esquerda) and (now - self._last_tap_time <= self._double_tap_window):
                     self.is_running = True
-                else:
-                    self.is_running = False  # primeiro tap → ainda não corre
+                    self.run_release_timer = self.run_release_buffer  # renova ao ativar
 
                 self._last_tap_time = now
-                self._last_tap_key  = event.key
+                self._last_tap_key = event.key
 
-        # Soltou a tecla direcional → reseta corrida
+        # Soltou a tecla — inicia o buffer antes de cancelar
         if event.type == pygame.KEYUP:
             if event.key in (pygame.K_RIGHT, pygame.K_d, pygame.K_LEFT, pygame.K_a):
-                self.is_running = False
+                self.run_release_timer = self.run_release_buffer  # não cancela ainda
 
     def get_status(self):
-        if self.direction.y != 0:
+        if not self.on_ground:
             self.status = 'jump'
         elif self.is_running and self.direction.x != 0:
             self.status = 'run'    # ← só ativa com double-tap
@@ -204,8 +211,8 @@ class Player(pygame.sprite.Sprite):
             self.hurt_time = pygame.time.get_ticks()
             
             # Aplica o impulso de knockback
-            self.direction.x = knockback_direction * 6  # empurra horizontalmente
-            self.direction.y = -8                        # pequeno salto para cima
+            self.direction.x = knockback_direction * 3  # empurra horizontalmente
+            self.direction.y = -5                        # pequeno salto para cima
             
             if self.damage_sound: 
                 self.damage_sound.play()
@@ -224,8 +231,31 @@ class Player(pygame.sprite.Sprite):
             return pygame.time.get_ticks() % 200 < 100
         return False
 
+    def update_run(self):
+        """Gerencia o cancelamento suave da corrida e a aceleração gradual."""
+
+        # Desconta o buffer de cancelamento
+        if self.run_release_timer > 0:
+            self.run_release_timer -= 1
+        elif self.direction.x == 0:
+            # Só cancela a corrida quando o buffer esgotou E parou de mover
+            self.is_running = False
+
+        # Aceleração gradual — interpola entre walk e run speed
+        if self.is_running and self.direction.x != 0:
+            # Acelera progressivamente até run_speed
+            self.current_speed = min(self.current_speed + 0.4, self.run_speed)
+        else:
+            # Desacelera progressivamente até walk_speed
+            self.current_speed = max(self.current_speed - 0.4, self.walk_speed)
+
     def update_jump_timers(self):
         """Gerencia coyote time, jump buffer e executa pulo quando apropriado."""
+        # Não processa pulo durante knockback
+        if self.is_invincible:
+            self.jump_buffer_timer = 0  # descarta intenção acumulada
+            return
+
         # Coyote timer: conta enquanto estiver no ar após sair de plataforma
         if self.on_ground:
             self.coyote_timer = self.coyote_time  # renova enquanto estiver no chão
@@ -246,6 +276,7 @@ class Player(pygame.sprite.Sprite):
     def update(self):
         self.get_input()
         self.update_jump_timers()
+        self.update_run()
         self.get_status()
         self.animate() 
         self.invincibility_timer()

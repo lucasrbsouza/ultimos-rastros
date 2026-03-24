@@ -94,18 +94,19 @@ class Level:
         margin_right = SCREEN_WIDTH - (SCREEN_WIDTH // 4)
 
         if player_x < margin_left and direction_x < 0:
-            self.world_shift = 5 
-            player.speed = 0     
+            self.world_shift = 5
+            player.current_speed = 0
         elif player_x > margin_right and direction_x > 0:
-            self.world_shift = -5 
-            player.speed = 0      
+            self.world_shift = -5
+            player.current_speed = 0
         else:
-            self.world_shift = 0  
-            player.speed = 5      
+            self.world_shift = 0
+            if not player.is_invincible:
+                player.current_speed = player.walk_speed      
 
     def horizontal_movement_collision(self):
         player = self.player.sprite
-        player.rect.x += player.direction.x * player.speed
+        player.rect.x += player.direction.x * player.current_speed
         for sprite in self.tiles.sprites():
             if sprite.rect.colliderect(player.rect):
                 if player.direction.x < 0: 
@@ -201,9 +202,8 @@ class Level:
         self.goal.update(self.world_shift) 
         self.goal.draw(self.display_surface) 
         
-        self.scroll_x()
-        
         self.player.update()
+        self.scroll_x()
         self.horizontal_movement_collision()
         self.vertical_movement_collision()
         

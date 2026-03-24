@@ -213,6 +213,13 @@ class Level:
         player = self.player.sprite
         
         visual_rect = player.image.get_rect(midbottom=player.rect.midbottom)
+        
+        # Pisca durante i-frames
+        if player.blink():
+            player.image.set_alpha(40)   # quase transparente
+        else:
+            player.image.set_alpha(255)  # totalmente visível
+        
         # Desenha a imagem na tela usando a posição do retângulo visual
         self.display_surface.blit(player.image, visual_rect)
         

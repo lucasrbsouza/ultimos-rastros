@@ -208,6 +208,14 @@ class Player(pygame.sprite.Sprite):
             if current_time - self.hurt_time >= self.invincibility_duration:
                 self.is_invincible = False
 
+    def blink(self):
+        """Retorna True nos frames em que o player deve ficar invisível."""
+        if self.is_invincible:
+            # pygame.time.get_ticks() retorna ms — divide para controlar velocidade
+            # % 200 cria um ciclo de 200ms, metade visível metade invisível
+            return pygame.time.get_ticks() % 200 < 100
+        return False
+
     def update(self):
         self.get_input()
         self.get_status()

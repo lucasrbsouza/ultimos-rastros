@@ -32,6 +32,14 @@ class Player(pygame.sprite.Sprite):
 
         self.on_ground = False
 
+        # Coyote time — frames que ainda pode pular após sair da plataforma
+        self.coyote_time = 6           # quantidade de frames de graça
+        self.coyote_timer = 0          # contador regressivo
+
+        # Buffer de pulo — frames que o jogo "lembra" que você quis pular
+        self.jump_buffer_time = 10     # quantidade de frames do buffer
+        self.jump_buffer_timer = 0     # contador regressivo
+
         # --- Double-tap para correr ---
         self._last_tap_key  = None   # qual tecla foi pressionada por último
         self._last_tap_time = 0      # momento do último tap
@@ -128,9 +136,9 @@ class Player(pygame.sprite.Sprite):
             self.direction.x = 0
             self.is_running = False
 
-        # Pulo
-        if (keys[pygame.K_UP] or keys[pygame.K_w] or keys[pygame.K_SPACE]) and self.on_ground:
-            self.jump()
+        # Pulo — registra intenção no buffer
+        if keys[pygame.K_UP] or keys[pygame.K_w] or keys[pygame.K_SPACE]:
+            self.jump_buffer_timer = self.jump_buffer_time  # ← guarda a intenção
     
     def handle_event(self, event):
         if event.type == pygame.KEYDOWN:
@@ -216,8 +224,28 @@ class Player(pygame.sprite.Sprite):
             return pygame.time.get_ticks() % 200 < 100
         return False
 
+    def update_jump_timers(self):
+        """Gerencia coyote time, jump buffer e executa pulo quando apropriado."""
+        # Coyote timer: conta enquanto estiver no ar após sair de plataforma
+        if self.on_ground:
+            self.coyote_timer = self.coyote_time  # renova enquanto estiver no chão
+        elif self.coyote_timer > 0:
+            self.coyote_timer -= 1               # esgota após sair da borda
+
+        # Buffer timer: conta regressivamente após apertar pulo
+        if self.jump_buffer_timer > 0:
+            self.jump_buffer_timer -= 1
+
+        # Executa o pulo se há intenção no buffer E ainda pode pular
+        pode_pular = self.on_ground or self.coyote_timer > 0
+        if self.jump_buffer_timer > 0 and pode_pular:
+            self.jump()
+            self.jump_buffer_timer = 0  # consome o buffer
+            self.coyote_timer = 0       # consome o coyote time
+
     def update(self):
         self.get_input()
+        self.update_jump_timers()
         self.get_status()
         self.animate() 
         self.invincibility_timer()

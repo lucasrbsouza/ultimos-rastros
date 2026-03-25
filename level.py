@@ -5,6 +5,7 @@ from sprites import Tile, Memory, Enemy, Goal, Dirt, Water, StaticObject
 from player import Player
 from ui import HUD
 from levels import *
+from save_system import save_game, load_game
 
 COLLECT_SOUND_PATH = 'assets/sounds/collect.wav'
 BG_GAME_PATH = 'assets/backgrounds_statics/bg_game.png'
@@ -85,6 +86,15 @@ class Level:
         for enemy in self.enemies:
           enemy.player_ref = self.player.sprite
 
+        # Carrega save se existir
+        save_data = load_game()
+        if save_data:
+            player = self.player.sprite
+            player.current_health = save_data['health']
+            player.memories       = save_data['memories']
+            player.rect.x         = save_data['pos_x']
+            player.rect.y         = save_data['pos_y']
+
     def scroll_x(self):
         player = self.player.sprite
         player_x = player.rect.centerx
@@ -137,9 +147,16 @@ class Level:
         collided_memories = pygame.sprite.spritecollide(player, self.memories, True)
         if collided_memories:
             player.memories += len(collided_memories)
-            
+
             if self.collect_sound:
                 self.collect_sound.play()
+
+            # Salva automaticamente ao coletar memória
+            save_game(
+                health   = player.current_health,
+                memories = player.memories,
+                position = (player.rect.x, player.rect.y)
+            )
 
     def check_damage(self):
         """Verifica colisão com inimigos e aplica dano."""

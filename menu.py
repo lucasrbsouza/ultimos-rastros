@@ -1,6 +1,7 @@
 import pygame
 from settings import *
 from ui import Button
+from save_system import load_game
 import math, random
 
 BG_MENU_PATH = 'assets/backgrounds_statics/bg_menu.png'
@@ -32,13 +33,23 @@ class MainMenu:
         btn_w, btn_h = 230, 50
         cx = SCREEN_WIDTH // 2 - btn_w // 2
         base_y = SCREEN_HEIGHT // 2 + 40
-        self.btn_play    = Button(cx, base_y,        btn_w, btn_h, "Jogar",    self.font_button)
-        self.btn_credits = Button(cx, base_y + 70,   btn_w, btn_h, "Créditos", self.font_button)
-        self.btn_quit    = Button(cx, base_y + 140,  btn_w, btn_h, "Sair",     self.font_button)
 
-        # offsets de entrada (deslizam da direita para o centro)
-        self._btn_offsets = [160, 160, 160]  # mantém — eles ainda vão deslizar
-        self._btn_delays  = [0, 0, 0]        # ← era [0, 18, 34] — todos começam junto   # frames de atraso por botão
+        # Verifica se existe save para montar os botões corretos
+        self.has_save = load_game() is not None
+
+        if self.has_save:
+            self.btn_continue = Button(cx, base_y,        btn_w, btn_h, "Continuar",  self.font_button)
+            self.btn_new_game = Button(cx, base_y + 70,   btn_w, btn_h, "Novo Jogo",  self.font_button)
+            self.btn_credits  = Button(cx, base_y + 140,  btn_w, btn_h, "Créditos",   self.font_button)
+            self.btn_quit     = Button(cx, base_y + 210,  btn_w, btn_h, "Sair",       self.font_button)
+            self._btn_offsets = [160, 160, 160, 160]
+            self._btn_delays  = [0, 0, 0, 0]
+        else:
+            self.btn_play    = Button(cx, base_y,        btn_w, btn_h, "Jogar",    self.font_button)
+            self.btn_credits = Button(cx, base_y + 70,   btn_w, btn_h, "Créditos", self.font_button)
+            self.btn_quit    = Button(cx, base_y + 140,  btn_w, btn_h, "Sair",     self.font_button)
+            self._btn_offsets = [160, 160, 160]
+            self._btn_delays  = [0, 0, 0]
 
         # --- Partículas (vaga-lumes verdes subindo) ---
         self.particles = [self._new_particle(random.randint(0, SCREEN_HEIGHT))
@@ -185,20 +196,27 @@ class MainMenu:
         t = self.clock_ticks
 
         mouse_pos = pygame.mouse.get_pos()
-        self.btn_play.update(mouse_pos)
+        if self.has_save:
+            self.btn_continue.update(mouse_pos)
+            self.btn_new_game.update(mouse_pos)
+        else:
+            self.btn_play.update(mouse_pos)
         self.btn_credits.update(mouse_pos)
         self.btn_quit.update(mouse_pos)
 
-        # ← fade_alpha, title_alpha e subtitle_alpha removidos daqui
-
-        # botões ainda deslizam (efeito mantido, mas rápido)
-        for i in range(3):
+        for i in range(len(self._btn_offsets)):
             if t > self._btn_delays[i]:
                 self._btn_offsets[i] = max(0, self._btn_offsets[i] - 18)
 
     def handle_event(self, event):
-        if self.btn_play.is_clicked(event):
-            return "PLAY"
+        if self.has_save:
+            if self.btn_continue.is_clicked(event):
+                return "CONTINUE"
+            if self.btn_new_game.is_clicked(event):
+                return "NEW_GAME"
+        else:
+            if self.btn_play.is_clicked(event):
+                return "PLAY"
         if self.btn_credits.is_clicked(event):
             return "CREDITS"
         if self.btn_quit.is_clicked(event):
@@ -239,7 +257,11 @@ class MainMenu:
         self.screen.blit(sub_surf, sub_rect)
 
         # ── botões deslizando ──
-        buttons = [self.btn_play, self.btn_credits, self.btn_quit]
+        if self.has_save:
+            buttons = [self.btn_continue, self.btn_new_game, self.btn_credits, self.btn_quit]
+        else:
+            buttons = [self.btn_play, self.btn_credits, self.btn_quit]
+
         for i, btn in enumerate(buttons):
             off   = self._btn_offsets[i]
             alpha = int(255 * (1 - off / 160))

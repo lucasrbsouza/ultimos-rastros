@@ -3,6 +3,7 @@ import sys
 from settings import *
 from menu import MainMenu, GameOverMenu, VictoryMenu, CreditsMenu
 from level import Level
+from save_system import delete_save
 
 MENU_BGM_PATH = 'assets/sounds/menu_bgm.mp3'
 GAME_BGM_PATH = 'assets/sounds/game_bgm.mp3'
@@ -69,7 +70,11 @@ class Game:
             
             if self.current_state == "MENU":
                 action = self.main_menu.handle_event(event)
-                if action == "PLAY":
+                if action == "CONTINUE":
+                    self.level = Level(self.screen)
+                    self.change_state("GAMEPLAY")
+                elif action in ("PLAY", "NEW_GAME"):
+                    delete_save()
                     self.level = Level(self.screen)
                     self.change_state("GAMEPLAY")
                 elif action == "CREDITS":

@@ -16,22 +16,32 @@ class Game:
         pygame.init()
         pygame.mixer.init()
 
-        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        # Surface lógica: resolução fixa do jogo (tudo é desenhado aqui)
+        self.render_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+
+        # Janela real: abre em modo janela redimensionável.
+        # pygame.SCALED escala a render_surface automaticamente mantendo aspect ratio
+        # com letterbox preto nas bordas quando necessário.
+        # F11 alterna para tela cheia.
+        self.window = pygame.display.set_mode(
+            (SCREEN_WIDTH, SCREEN_HEIGHT),
+            pygame.RESIZABLE | pygame.SCALED
+        )
         pygame.display.set_caption("Últimos Rastros")
         self.clock = pygame.time.Clock()
         self.is_running = True
 
-        # Instanciando os componentes
-        self.main_menu = MainMenu(self.screen)
-        self.game_over_menu = GameOverMenu(self.screen)
-        self.victory_menu = VictoryMenu(self.screen)
-        self.credits_menu = CreditsMenu(self.screen)
-        self.history_menu = HistoryMenu(self.screen)
+        # Todos os componentes recebem a surface lógica (1280×680)
+        self.main_menu = MainMenu(self.render_surface)
+        self.game_over_menu = GameOverMenu(self.render_surface)
+        self.victory_menu = VictoryMenu(self.render_surface)
+        self.credits_menu = CreditsMenu(self.render_surface)
+        self.history_menu = HistoryMenu(self.render_surface)
         self.level = None
 
         # Rastreamento de sessão
-        self._session_start = None   # timestamp quando o jogo começou
-        self._session_deaths = 0     # mortes desde o início da sessão
+        self._session_start = None
+        self._session_deaths = 0
 
         self.current_state = None
         self.change_state("MENU")
@@ -54,7 +64,7 @@ class Game:
 
         # Recria o menu principal para que has_save seja reavaliado
         if new_state == "MENU":
-            self.main_menu = MainMenu(self.screen)
+            self.main_menu = MainMenu(self.render_surface)
 
         # Mantém a música ao entrar nos Créditos / Histórico
         if new_state in ("CREDITS", "HISTORY"):
@@ -85,26 +95,28 @@ class Game:
             if event.type == pygame.QUIT:
                 self.is_running = False
 
+            # F11 alterna entre tela cheia e janela
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
+                self._toggle_fullscreen()
+
             if self.current_state == "MENU":
                 action = self.main_menu.handle_event(event)
                 if action == "CONTINUE":
                     save_data = load_game()
-                    self.level = Level(self.screen, save_data)
-                    # Se já havia uma sessão em andamento (continue), mantém o timer
+                    self.level = Level(self.render_surface, save_data)
                     if self._session_start is None:
                         self._start_session()
                     self.change_state("GAMEPLAY")
                 elif action == "NEW_GAME":
                     delete_save()
-                    self.level = Level(self.screen)
+                    self.level = Level(self.render_surface)
                     self._start_session()
                     self.change_state("GAMEPLAY")
                 elif action == "HISTORY":
-                    self.history_menu = HistoryMenu(self.screen)
+                    self.history_menu = HistoryMenu(self.render_surface)
                     self.change_state("HISTORY")
                 elif action == "CREDITS":
                     self.change_state("CREDITS")
-                    print("Créditos: José Lucas Silva Souza")
                 elif action == "QUIT":
                     self.is_running = False
 
@@ -118,7 +130,7 @@ class Game:
                 if action == "RETRY":
                     delete_save()
                     self._session_deaths += 1
-                    self.level = Level(self.screen)
+                    self.level = Level(self.render_surface)
                     self.change_state("GAMEPLAY")
                 elif action == "MENU":
                     self._session_start = None
@@ -141,6 +153,20 @@ class Game:
                 if action == "MENU":
                     self.change_state("MENU")
 
+    def _toggle_fullscreen(self):
+        """Alterna entre tela cheia e janela redimensionável (F11)."""
+        flags = self.window.get_flags()
+        if flags & pygame.FULLSCREEN:
+            self.window = pygame.display.set_mode(
+                (SCREEN_WIDTH, SCREEN_HEIGHT),
+                pygame.RESIZABLE | pygame.SCALED
+            )
+        else:
+            self.window = pygame.display.set_mode(
+                (0, 0),
+                pygame.FULLSCREEN | pygame.SCALED
+            )
+
     def update(self):
         if self.current_state == "MENU":
             self.main_menu.update()
@@ -160,15 +186,14 @@ class Game:
         elif self.current_state == "GAMEPLAY":
             game_status = self.level.run()
             if game_status == "GAMEOVER":
-                self.game_over_menu = GameOverMenu(self.screen)
+                self.game_over_menu = GameOverMenu(self.render_surface)
                 self.change_state("GAMEOVER")
             elif game_status == "VICTORY":
-                # Calcula tempo e salva histórico
                 elapsed = time.time() - self._session_start if self._session_start else 0
                 save_history(elapsed, self._session_deaths)
                 delete_save()
                 self._session_start = None
-                self.victory_menu = VictoryMenu(self.screen)
+                self.victory_menu = VictoryMenu(self.render_surface)
                 self.change_state("VICTORY")
 
         elif self.current_state == "GAMEOVER":
@@ -181,6 +206,9 @@ class Game:
         elif self.current_state == "HISTORY":
             self.history_menu.draw()
 
+        # Escala a surface lógica para a janela real (pygame.SCALED faz isso automaticamente
+        # ao fazer blit da render_surface para a window)
+        self.window.blit(self.render_surface, (0, 0))
         pygame.display.flip()
 
     def run(self):

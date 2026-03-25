@@ -30,26 +30,39 @@ class MainMenu:
             self.bg_image = None
 
         # --- Botões (entram escalonados da direita) ---
-        btn_w, btn_h = 230, 50
+        btn_w, btn_h = 230, 46
+        btn_gap = 58   # espaçamento entre botões
         cx = SCREEN_WIDTH // 2 - btn_w // 2
-        base_y = SCREEN_HEIGHT // 2 + 40
 
         # Verifica se existe save para montar os botões corretos
         self.has_save = has_save()
 
         if self.has_save:
-            self.btn_continue = Button(cx, base_y,        btn_w, btn_h, "Continuar",  self.font_button)
-            self.btn_new_game = Button(cx, base_y + 70,   btn_w, btn_h, "Novo Jogo",  self.font_button)
-            self.btn_history  = Button(cx, base_y + 140,  btn_w, btn_h, "Histórico",  self.font_button)
-            self.btn_credits  = Button(cx, base_y + 210,  btn_w, btn_h, "Créditos",   self.font_button)
-            self.btn_quit     = Button(cx, base_y + 280,  btn_w, btn_h, "Sair",       self.font_button)
+            n_btns = 5
+            total_h = btn_h + (n_btns - 1) * btn_gap
+            # centraliza o bloco na metade inferior da tela com margem de 20px do fundo
+            base_y = min(
+                SCREEN_HEIGHT // 2 + 20,
+                SCREEN_HEIGHT - total_h - 20
+            )
+            self.btn_continue = Button(cx, base_y,                 btn_w, btn_h, "Continuar",  self.font_button)
+            self.btn_new_game = Button(cx, base_y + btn_gap,       btn_w, btn_h, "Novo Jogo",  self.font_button)
+            self.btn_history  = Button(cx, base_y + btn_gap * 2,   btn_w, btn_h, "Histórico",  self.font_button)
+            self.btn_credits  = Button(cx, base_y + btn_gap * 3,   btn_w, btn_h, "Créditos",   self.font_button)
+            self.btn_quit     = Button(cx, base_y + btn_gap * 4,   btn_w, btn_h, "Sair",       self.font_button)
             self._btn_offsets = [160, 160, 160, 160, 160]
             self._btn_delays  = [0, 0, 0, 0, 0]
         else:
-            self.btn_play    = Button(cx, base_y,        btn_w, btn_h, "Jogar",     self.font_button)
-            self.btn_history = Button(cx, base_y + 70,   btn_w, btn_h, "Histórico", self.font_button)
-            self.btn_credits = Button(cx, base_y + 140,  btn_w, btn_h, "Créditos",  self.font_button)
-            self.btn_quit    = Button(cx, base_y + 210,  btn_w, btn_h, "Sair",      self.font_button)
+            n_btns = 4
+            total_h = btn_h + (n_btns - 1) * btn_gap
+            base_y = min(
+                SCREEN_HEIGHT // 2 + 20,
+                SCREEN_HEIGHT - total_h - 20
+            )
+            self.btn_play    = Button(cx, base_y,               btn_w, btn_h, "Jogar",     self.font_button)
+            self.btn_history = Button(cx, base_y + btn_gap,     btn_w, btn_h, "Histórico", self.font_button)
+            self.btn_credits = Button(cx, base_y + btn_gap * 2, btn_w, btn_h, "Créditos",  self.font_button)
+            self.btn_quit    = Button(cx, base_y + btn_gap * 3, btn_w, btn_h, "Sair",      self.font_button)
             self._btn_offsets = [160, 160, 160, 160]
             self._btn_delays  = [0, 0, 0, 0]
 

@@ -1,1 +1,14 @@
-{"health": 5, "memories": 2, "pos_x": 765, "pos_y": 160}
+{
+  "health": 5,
+  "memories": 2,
+  "collected_positions": [
+    [
+      735,
+      195
+    ],
+    [
+      435,
+      315
+    ]
+  ]
+}

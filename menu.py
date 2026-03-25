@@ -1,7 +1,7 @@
 import pygame
 from settings import *
 from ui import Button
-from save_system import load_game
+from save_system import has_save
 import math, random
 
 BG_MENU_PATH = 'assets/backgrounds_statics/bg_menu.png'
@@ -35,7 +35,7 @@ class MainMenu:
         base_y = SCREEN_HEIGHT // 2 + 40
 
         # Verifica se existe save para montar os botões corretos
-        self.has_save = load_game() is not None
+        self.has_save = has_save()
 
         if self.has_save:
             self.btn_continue = Button(cx, base_y,        btn_w, btn_h, "Continuar",  self.font_button)
@@ -216,7 +216,7 @@ class MainMenu:
                 return "NEW_GAME"
         else:
             if self.btn_play.is_clicked(event):
-                return "PLAY"
+                return "NEW_GAME"
         if self.btn_credits.is_clicked(event):
             return "CREDITS"
         if self.btn_quit.is_clicked(event):

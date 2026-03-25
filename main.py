@@ -3,7 +3,7 @@ import sys
 from settings import *
 from menu import MainMenu, GameOverMenu, VictoryMenu, CreditsMenu
 from level import Level
-from save_system import delete_save
+from save_system import delete_save, load_game, has_save
 
 MENU_BGM_PATH = 'assets/sounds/menu_bgm.mp3'
 GAME_BGM_PATH = 'assets/sounds/game_bgm.mp3'
@@ -25,10 +25,9 @@ class Game:
         self.game_over_menu = GameOverMenu(self.screen)
         self.victory_menu = VictoryMenu(self.screen)
         self.credits_menu = CreditsMenu(self.screen)
-        self.level = Level(self.screen)
+        self.level = None
 
-        
-        self.current_state = None 
+        self.current_state = None
         self.change_state("MENU")
 
     def change_state(self, new_state):
@@ -38,6 +37,10 @@ class Game:
         if new_state == "MENU" and old_state == "CREDITS":
             pygame.mixer.music.unpause()
             return
+
+        # Recria o menu principal para que has_save seja reavaliado
+        if new_state == "MENU":
+            self.main_menu = MainMenu(self.screen)
 
         # Mantém a música ao entrar nos Créditos
         if new_state == "CREDITS":
@@ -71,9 +74,10 @@ class Game:
             if self.current_state == "MENU":
                 action = self.main_menu.handle_event(event)
                 if action == "CONTINUE":
-                    self.level = Level(self.screen)
+                    save_data = load_game()
+                    self.level = Level(self.screen, save_data)
                     self.change_state("GAMEPLAY")
-                elif action in ("PLAY", "NEW_GAME"):
+                elif action == "NEW_GAME":
                     delete_save()
                     self.level = Level(self.screen)
                     self.change_state("GAMEPLAY")
@@ -91,6 +95,7 @@ class Game:
             elif self.current_state == "GAMEOVER":
                 action = self.game_over_menu.handle_event(event)
                 if action == "RETRY":
+                    delete_save()
                     self.level = Level(self.screen)
                     self.change_state("GAMEPLAY")
                 elif action == "MENU":

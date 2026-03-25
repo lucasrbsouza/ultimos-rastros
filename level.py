@@ -5,24 +5,35 @@ from sprites import Tile, Memory, Enemy, Goal, Dirt, Water, StaticObject
 from player import Player
 from ui import HUD
 from levels import *
-from save_system import save_game, load_game
+from save_system import save_game, load_game, delete_save
 
 COLLECT_SOUND_PATH = 'assets/sounds/collect.wav'
 BG_GAME_PATH = 'assets/backgrounds_statics/bg_game.png'
 
 class Level:
-    def __init__(self, surface):
+    def __init__(self, surface, save_data=None):
+        """
+        save_data: dicionário retornado por load_game(), ou None para novo jogo.
+        """
         self.display_surface = surface
-        
+
         self.tiles = pygame.sprite.Group()
         self.player = pygame.sprite.GroupSingle()
         self.memories = pygame.sprite.Group()
         self.enemies = pygame.sprite.Group()
         self.goal = pygame.sprite.GroupSingle()
-        
+
         self.hud = HUD(self.display_surface)
-        self.world_shift = 0 
-        
+        self.world_shift = 0
+
+        # Posições (tuplas) das memórias já coletadas — carregadas do save ou vazias
+        if save_data and 'collected_positions' in save_data:
+            self.collected_positions = set(
+                tuple(pos) for pos in save_data['collected_positions']
+            )
+        else:
+            self.collected_positions = set()
+
         try:
             self.collect_sound = pygame.mixer.Sound(COLLECT_SOUND_PATH)
             self.collect_sound.set_volume(0.6)
@@ -30,10 +41,10 @@ class Level:
             self.collect_sound = None
 
         self.parallax = ParallaxBackground(SCREEN_WIDTH, SCREEN_HEIGHT)
-            
-        self.setup_level(LEVEL_MAP)
 
-    def setup_level(self, layout):
+        self.setup_level(LEVEL_MAP, save_data)
+
+    def setup_level(self, layout, save_data=None):
         self.tiles = pygame.sprite.Group()
         self.memories = pygame.sprite.Group()
         self.enemies = pygame.sprite.Group()
@@ -64,8 +75,10 @@ class Level:
                     self.enemies.add(enemy_sprite)
                 
                 elif cell == 'M':
-                    memory_sprite = Memory((x, y), TILE_SIZE)
-                    self.memories.add(memory_sprite)
+                    # Só cria o sprite se esta posição ainda NÃO foi coletada
+                    if (x, y) not in self.collected_positions:
+                        memory_sprite = Memory((x, y), TILE_SIZE)
+                        self.memories.add(memory_sprite)
                 
                 elif cell == 'G':
                     goal_sprite = Goal((x, y), TILE_SIZE)
@@ -83,17 +96,14 @@ class Level:
                     # pos = (x,y), folder = 'Trees', image = '1.png', etc.
                     tree = StaticObject((x, y), 'Bushes', f'{cell}.png', TILE_SIZE)
                     self.objects.add(tree)
-        for enemy in self.enemies:
-          enemy.player_ref = self.player.sprite
-
-        # Carrega save se existir
-        save_data = load_game()
+        # Aplica estado salvo ao player se houver save
         if save_data:
             player = self.player.sprite
-            player.current_health = save_data['health']
-            player.memories       = save_data['memories']
-            player.rect.x         = save_data['pos_x']
-            player.rect.y         = save_data['pos_y']
+            player.memories       = save_data.get('memories', 0)
+            player.current_health = save_data.get('health', player.max_health)
+
+        for enemy in self.enemies:
+            enemy.player_ref = self.player.sprite
 
     def scroll_x(self):
         player = self.player.sprite
@@ -148,15 +158,14 @@ class Level:
         if collided_memories:
             player.memories += len(collided_memories)
 
+            # Registra as posições coletadas e salva imediatamente
+            for memory in collided_memories:
+                self.collected_positions.add(memory.rect.topleft)
+
+            save_game(player, self.collected_positions)
+
             if self.collect_sound:
                 self.collect_sound.play()
-
-            # Salva automaticamente ao coletar memória
-            save_game(
-                health   = player.current_health,
-                memories = player.memories,
-                position = (player.rect.x, player.rect.y)
-            )
 
     def check_damage(self):
         """Verifica colisão com inimigos e aplica dano."""

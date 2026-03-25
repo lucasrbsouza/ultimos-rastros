@@ -67,10 +67,15 @@ class Player(pygame.sprite.Sprite):
         self.invincibility_duration = 1000 
         self.hurt_time = 0
 
+        # 5. Poder de fogo
+        self._fire_cooldown = 400   # ms entre disparos
+        self._last_fire_time = 0
+        self.pending_fire = False   # sinaliza ao Level para criar o projétil
+
         try:
             self.jump_sound = pygame.mixer.Sound(JUMP_SOUND_PATH)
-            self.jump_sound.set_volume(0.3) 
-            
+            self.jump_sound.set_volume(0.3)
+
             self.damage_sound = pygame.mixer.Sound(DAMAGE_SOUND_PATH)
             self.damage_sound.set_volume(0.5)
         except FileNotFoundError:
@@ -151,6 +156,13 @@ class Player(pygame.sprite.Sprite):
     def handle_event(self, event):
         if event.type == pygame.KEYDOWN:
             now = pygame.time.get_ticks()
+
+            # Disparo da Fire Arrow — tecla Z
+            if event.key == pygame.K_z:
+                if now - self._last_fire_time >= self._fire_cooldown:
+                    self._last_fire_time = now
+                    self.pending_fire = True
+
             if event.key in (pygame.K_RIGHT, pygame.K_d, pygame.K_LEFT, pygame.K_a):
                 
                 # Mesma direção pressionada dentro da janela? → É double-tap

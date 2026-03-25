@@ -1,9 +1,10 @@
+import os
 import pygame
 
 WATER_IMAGE_PATH = 'assets/watersheet.png'
 TILE_IMAGE_PATH = 'assets/Tileset.png'
 MEMORY_IMAGE_PATH = 'assets/Rune.png'
-ENEMY_IMAGE_PATH = 'assets/enemy.svg'
+ENEMY_FRAMES_PATH = 'assets/enemies/fly/fly_{:02d}.png'
 GOAL_IMAGE_PATH = 'assets/goal.png'
 
 class BaseTile(pygame.sprite.Sprite):
@@ -129,16 +130,26 @@ class Enemy(pygame.sprite.Sprite):
     def __init__(self, pos, size):
         super().__init__()
 
-        try:
-            base = pygame.image.load(ENEMY_IMAGE_PATH).convert_alpha()
-            self.image_left  = pygame.transform.scale(base, (size, size))  
-        except FileNotFoundError:
-            self.image_right = pygame.Surface((size, size))
-            self.image_right.fill((200, 50, 50))
+        self._frames_left = []
+        i = 1
+        while True:
+            path = ENEMY_FRAMES_PATH.format(i)
+            if not os.path.exists(path):
+                break
+            img = pygame.image.load(path).convert_alpha()
+            img = pygame.transform.scale(img, (size, size))
+            self._frames_left.append(img)
+            i += 1
+        if not self._frames_left:
+            fallback = pygame.Surface((size, size))
+            fallback.fill((200, 50, 50))
+            self._frames_left.append(fallback)
 
-        # original já olha pra esquerda
-        self.image_right = pygame.transform.flip(self.image_left, True, False)
-        self.image = self.image_left
+        self._frames_right = [pygame.transform.flip(f, True, False) for f in self._frames_left]
+
+        self._frame_index = 0.0
+        self._anim_speed  = 0.1
+        self.image = self._frames_left[0]
         self.rect  = self.image.get_rect(topleft=pos)
 
         # ── Origem (ponto de spawn — âncora da patrulha) ──────────────
@@ -163,6 +174,20 @@ class Enemy(pygame.sprite.Sprite):
         # ── Referência ao jogador (injetada pelo Level) ────────────────
         self.player_ref = None     # Level faz: enemy.player_ref = player_sprite
 
+        # ── Vida ───────────────────────────────────────────────────────
+        self.health = 3
+        self._hurt_time = 0          # ms do último dano recebido
+        self._hurt_duration = 300    # ms piscando após levar dano
+
+    def take_damage(self, amount=1):
+        """Recebe dano e retorna True se morreu."""
+        self.health -= amount
+        self._hurt_time = pygame.time.get_ticks()
+        if self.health <= 0:
+            self.kill()
+            return True
+        return False
+
     # ── helpers ─────────────────────────────────────────────────────────
     def _dist_to_player(self):
         if self.player_ref is None:
@@ -170,9 +195,7 @@ class Enemy(pygame.sprite.Sprite):
         return abs(self.player_ref.rect.centerx - self.rect.centerx)
 
     def _face(self, direction):
-        """Atualiza sprite sem acumular flips."""
         self.direction = direction
-        self.image = self.image_right if direction == 1 else self.image_left
 
     # ── estados ─────────────────────────────────────────────────────────
     def _patrol(self):
@@ -219,6 +242,18 @@ class Enemy(pygame.sprite.Sprite):
         elif self.state == 'chase':
             self._chase()
 
+        # Avança animação
+        self._frame_index = (self._frame_index + self._anim_speed) % len(self._frames_left)
+        frames = self._frames_right if self.direction == 1 else self._frames_left
+        self.image = frames[int(self._frame_index)]
+
+        # Pisca enquanto está machucado
+        now = pygame.time.get_ticks()
+        if now - self._hurt_time < self._hurt_duration:
+            self.image.set_alpha(80 if (now // 80) % 2 == 0 else 255)
+        else:
+            self.image.set_alpha(255)
+
 class Goal(pygame.sprite.Sprite):
     def __init__(self, pos, size):
         super().__init__()
@@ -228,6 +263,50 @@ class Goal(pygame.sprite.Sprite):
 
     def update(self, x_shift):
         self.rect.x += x_shift
+
+class FireArrow(pygame.sprite.Sprite):
+    """Projétil de fogo disparado pelo jogador."""
+    FRAMES_PATH = 'assets/player_power/Fire Arrow/PNG/Fire Arrow_Frame_{:02d}.png'
+    
+    SPEED = 10
+    SIZE = (48, 48)
+
+    def __init__(self, pos, facing_right):
+        super().__init__()
+
+        self.frames = []
+        for i in range(1, 9):
+            try:
+                img = pygame.image.load(self.FRAMES_PATH.format(i)).convert_alpha()
+                img = pygame.transform.scale(img, self.SIZE)
+                self.frames.append(img)
+            except FileNotFoundError:
+                fallback = pygame.Surface(self.SIZE, pygame.SRCALPHA)
+                fallback.fill((255, 140, 0))
+                self.frames.append(fallback)
+
+        self.facing_right = facing_right
+        if facing_right:
+            self.frames = [pygame.transform.flip(f, True, False) for f in self.frames]
+
+        self.frame_index = 0
+        self.animation_speed = 0.3
+        self.image = self.frames[0]
+        self.rect = self.image.get_rect(center=pos)
+        self.velocity = self.SPEED if facing_right else -self.SPEED
+
+    def update(self, x_shift=0):
+        self.rect.x += self.velocity + x_shift
+
+        self.frame_index += self.animation_speed
+        if self.frame_index >= len(self.frames):
+            self.frame_index = 0
+        self.image = self.frames[int(self.frame_index)]
+
+        # Remove se sair da tela (margem generosa)
+        if self.rect.right < -100 or self.rect.left > 1380:
+            self.kill()
+
 
 class StaticObject(pygame.sprite.Sprite):
     """Classe genérica para objetos de cenário estáticos (árvores, pedras, etc)."""

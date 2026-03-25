@@ -1,7 +1,7 @@
 import pygame
 from background import ParallaxBackground
 from settings import *
-from sprites import Tile, Memory, Enemy, Goal, Dirt, Water, StaticObject
+from sprites import Tile, Memory, Enemy, Goal, Dirt, Water, StaticObject, FireArrow
 from player import Player
 from ui import HUD
 from levels import *
@@ -22,6 +22,7 @@ class Level:
         self.memories = pygame.sprite.Group()
         self.enemies = pygame.sprite.Group()
         self.goal = pygame.sprite.GroupSingle()
+        self.projectiles = pygame.sprite.Group()
 
         self.hud = HUD(self.display_surface)
         self.world_shift = 0
@@ -188,6 +189,25 @@ class Level:
             
             player.take_damage(1, knockback_direction)
 
+    def _spawn_fire_arrow(self):
+        """Cria um projétil na posição do jogador se ele sinalizou o disparo."""
+        player = self.player.sprite
+        if player.pending_fire:
+            player.pending_fire = False
+            # Lança da lateral do jogador na direção que ele está olhando
+            offset_x = 30 if player.facing_right else -30
+            spawn_pos = (player.rect.centerx + offset_x, player.rect.centery)
+            arrow = FireArrow(spawn_pos, player.facing_right)
+            self.projectiles.add(arrow)
+
+    def check_projectiles(self):
+        """Verifica colisão de projéteis com inimigos."""
+        for arrow in list(self.projectiles):
+            hit = pygame.sprite.spritecollide(arrow, self.enemies, False)
+            if hit:
+                arrow.kill()
+                hit[0].take_damage(1)
+
     def check_death(self):
         """Morre se cair no buraco OU se a vida zerar."""
         if self.player.sprite.rect.top > SCREEN_HEIGHT or self.player.sprite.current_health <= 0:
@@ -237,6 +257,11 @@ class Level:
         
         self.check_collectibles()
         self.check_damage()
+
+        self._spawn_fire_arrow()
+        self.projectiles.update(self.world_shift)
+        self.check_projectiles()
+        self.projectiles.draw(self.display_surface)
         
         player = self.player.sprite
         

@@ -1,7 +1,7 @@
 import pygame
 from background import ParallaxBackground
 from settings import *
-from sprites import Tile, Memory, Enemy, Goal, Dirt, Water, StaticObject, FireArrow
+from sprites import Tile, Memory, Enemy, Goal, Dirt, Water, StaticObject, FireArrow, Ladder
 from player import Player
 from ui import HUD
 from levels import *
@@ -23,6 +23,7 @@ class Level:
         self.enemies = pygame.sprite.Group()
         self.goal = pygame.sprite.GroupSingle()
         self.projectiles = pygame.sprite.Group()
+        self.ladders = pygame.sprite.Group()
 
         self.hud = HUD(self.display_surface)
         self.world_shift = 0
@@ -54,6 +55,7 @@ class Level:
         self.enemies = pygame.sprite.Group()
         self.goal = pygame.sprite.GroupSingle()
         self.objects = pygame.sprite.Group()
+        self.ladders = pygame.sprite.Group()
         
         for row_index, row in enumerate(layout):
             for col_index, cell in enumerate(row):
@@ -97,6 +99,10 @@ class Level:
                     tree = StaticObject((x, y), 'Bushes', f'{cell}.png', TILE_SIZE)
                     self.objects.add(tree)
 
+                elif cell == 'C':
+                    ladder = Ladder((x, y), TILE_SIZE)
+                    self.ladders.add(ladder)
+
         # ── CORREÇÃO: Aplica estado salvo ao player (incluindo posição) ──
         if save_data:
             player = self.player.sprite
@@ -135,9 +141,9 @@ class Level:
         player.rect.x += player.direction.x * player.current_speed
         for sprite in self.tiles.sprites():
             if sprite.rect.colliderect(player.rect):
-                if player.direction.x < 0: 
+                if player.direction.x < 0:
                     player.rect.left = sprite.rect.right
-                elif player.direction.x > 0: 
+                elif player.direction.x > 0:
                     player.rect.right = sprite.rect.left
 
     def vertical_movement_collision(self):
@@ -151,10 +157,15 @@ class Level:
                     self.player.sprite.rect.bottom = sprite.rect.top
                     self.player.sprite.direction.y = 0
                     self.player.sprite.on_ground = True
+                    self.player.sprite.on_ladder = False
 
                 elif self.player.sprite.direction.y < 0:
                     self.player.sprite.rect.top = sprite.rect.bottom
                     self.player.sprite.direction.y = 0
+
+    def check_ladder(self):
+        player = self.player.sprite
+        player.on_ladder = bool(pygame.sprite.spritecollide(player, self.ladders, False))
 
     def check_collectibles(self):
         player = self.player.sprite
@@ -240,6 +251,9 @@ class Level:
 
         self.objects.update(self.world_shift)
         self.draw_visible(self.objects)
+
+        self.ladders.update(self.world_shift)
+        self.ladders.draw(self.display_surface)
         
         self.memories.update(self.world_shift)
         self.memories.draw(self.display_surface)
@@ -250,11 +264,11 @@ class Level:
         self.goal.update(self.world_shift) 
         self.goal.draw(self.display_surface) 
         
+        self.check_ladder()
         self.player.update()
         self.scroll_x()
         self.horizontal_movement_collision()
         self.vertical_movement_collision()
-        
         self.check_collectibles()
         self.check_damage()
 
@@ -280,7 +294,11 @@ class Level:
         if self.check_death():
             return "GAMEOVER"
             
-        if self.check_victory(): 
-            return "VICTORY"
+        if self.check_victory():
+            memories_count = self.player.sprite.memories
+            if memories_count >= GOOD_ENDING_THRESHOLD:
+                return "VICTORY_GOOD"
+            else:
+                return "VICTORY_BAD"
         
         return None

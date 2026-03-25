@@ -1,9 +1,10 @@
 import pygame
 
-PLAYER_IDLE_PATH = 'assets/player_spritesheet/Idle.png'
-PLAYER_WALK_PATH = 'assets/player_spritesheet/Walk.png'
-PLAYER_RUN_PATH = 'assets/player_spritesheet/Run.png'
-PLAYER_JUMP_PATH = 'assets/player_spritesheet/Jump.png'
+PLAYER_IDLE_PATH   = 'assets/player_spritesheet/Idle.png'
+PLAYER_WALK_PATH   = 'assets/player_spritesheet/Walk.png'
+PLAYER_RUN_PATH    = 'assets/player_spritesheet/Run.png'
+PLAYER_JUMP_PATH   = 'assets/player_spritesheet/Jump.png'
+PLAYER_ATTACK_PATH = 'assets/player_spritesheet/Attack_1.png'
 JUMP_SOUND_PATH = 'assets/sounds/jump.mp3'
 DAMAGE_SOUND_PATH = 'assets/sounds/damage.mp3'
 
@@ -31,6 +32,10 @@ class Player(pygame.sprite.Sprite):
         self.jump_speed = -16
 
         self.on_ground = False
+
+        # Escada
+        self.on_ladder     = False
+        self.ladder_speed  = 4
 
         # Coyote time — frames que ainda pode pular após sair da plataforma
         self.coyote_time = 6           # quantidade de frames de graça
@@ -72,6 +77,9 @@ class Player(pygame.sprite.Sprite):
         self._last_fire_time = 0
         self.pending_fire = False   # sinaliza ao Level para criar o projétil
 
+        # Animação de ataque
+        self.is_attacking = False
+
         try:
             self.jump_sound = pygame.mixer.Sound(JUMP_SOUND_PATH)
             self.jump_sound.set_volume(0.3)
@@ -90,25 +98,28 @@ class Player(pygame.sprite.Sprite):
         return image
 
     def import_character_assets(self):
-        self.animations = {'idle': [], 'walk': [], 'run': [], 'jump': []}  # ← adiciona 'walk'
+        self.animations = {'idle': [], 'walk': [], 'run': [], 'jump': [], 'attack': []}
         scale = 0.80
 
         try:
-            player_idle = pygame.image.load(PLAYER_IDLE_PATH).convert_alpha()
-            player_walk = pygame.image.load(PLAYER_WALK_PATH).convert_alpha()
-            player_run  = pygame.image.load(PLAYER_RUN_PATH).convert_alpha()
-            player_jump = pygame.image.load(PLAYER_JUMP_PATH).convert_alpha()
+            player_idle   = pygame.image.load(PLAYER_IDLE_PATH).convert_alpha()
+            player_walk   = pygame.image.load(PLAYER_WALK_PATH).convert_alpha()
+            player_run    = pygame.image.load(PLAYER_RUN_PATH).convert_alpha()
+            player_jump   = pygame.image.load(PLAYER_JUMP_PATH).convert_alpha()
+            player_attack = pygame.image.load(PLAYER_ATTACK_PATH).convert_alpha()
 
-            frames_idle = 5
-            frames_walk = 8 
-            frames_run  = 8
-            frames_jump = 7
+            frames_idle   = 5
+            frames_walk   = 8
+            frames_run    = 8
+            frames_jump   = 7
+            frames_attack = 5
 
             for sheet, key, frames in [
-                (player_idle, 'idle', frames_idle),
-                (player_walk, 'walk', frames_walk),
-                (player_run,  'run',  frames_run),
-                (player_jump, 'jump', frames_jump),
+                (player_idle,   'idle',   frames_idle),
+                (player_walk,   'walk',   frames_walk),
+                (player_run,    'run',    frames_run),
+                (player_jump,   'jump',   frames_jump),
+                (player_attack, 'attack', frames_attack),
             ]:
                 fw = sheet.get_width() // frames
                 fh = sheet.get_height()
@@ -149,6 +160,16 @@ class Player(pygame.sprite.Sprite):
         else:
             self.direction.x = 0
 
+        # Movimento vertical na escada
+        if self.on_ladder:
+            if keys[pygame.K_UP] or keys[pygame.K_w]:
+                self.direction.y = -self.ladder_speed
+            elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
+                self.direction.y = self.ladder_speed
+            else:
+                self.direction.y = 0
+            return   # não processa pulo enquanto estiver na escada
+
         # Pulo — registra intenção no buffer
         if keys[pygame.K_UP] or keys[pygame.K_w] or keys[pygame.K_SPACE]:
             self.jump_buffer_timer = self.jump_buffer_time  # ← guarda a intenção
@@ -161,7 +182,8 @@ class Player(pygame.sprite.Sprite):
             if event.key == pygame.K_z:
                 if now - self._last_fire_time >= self._fire_cooldown:
                     self._last_fire_time = now
-                    self.pending_fire = True
+                    self.is_attacking = True
+                    self.frame_index = 0
 
             if event.key in (pygame.K_RIGHT, pygame.K_d, pygame.K_LEFT, pygame.K_a):
                 
@@ -184,7 +206,11 @@ class Player(pygame.sprite.Sprite):
                 self.run_release_timer = self.run_release_buffer  # não cancela ainda
 
     def get_status(self):
-        if not self.on_ground:
+        if self.is_attacking:
+            self.status = 'attack'
+        elif self.on_ladder and self.direction.y != 0:
+            self.status = 'jump'
+        elif not self.on_ground:
             self.status = 'jump'
         elif self.is_running and self.direction.x != 0:
             self.status = 'run'    # ← só ativa com double-tap
@@ -195,19 +221,25 @@ class Player(pygame.sprite.Sprite):
 
     def animate(self):
         animation = self.animations[self.status]
-        
+
         self.frame_index += self.animation_speed
         if self.frame_index >= len(animation):
+            if self.status == 'attack':
+                self.is_attacking = False
+                self.pending_fire = True
             self.frame_index = 0
-            
+
         idx = int(self.frame_index)
-        
+
         if self.facing_right:
             self.image = self.animations[self.status][idx]
         else:
-            self.image = self.animations_flipped[self.status][idx] 
+            self.image = self.animations_flipped[self.status][idx]
 
     def apply_gravity(self):
+        if self.on_ladder:
+            self.rect.y += self.direction.y
+            return
         self.direction.y += self.gravity
         self.rect.y += self.direction.y
 

@@ -188,12 +188,13 @@ class Game:
             if game_status == "GAMEOVER":
                 self.game_over_menu = GameOverMenu(self.render_surface)
                 self.change_state("GAMEOVER")
-            elif game_status == "VICTORY":
+            elif game_status in ("VICTORY_GOOD", "VICTORY_BAD"):
                 elapsed = time.time() - self._session_start if self._session_start else 0
                 save_history(elapsed, self._session_deaths)
                 delete_save()
                 self._session_start = None
-                self.victory_menu = VictoryMenu(self.render_surface)
+                ending_type = 'good' if game_status == "VICTORY_GOOD" else 'bad'
+                self.victory_menu = VictoryMenu(self.render_surface, ending=ending_type)
                 self.change_state("VICTORY")
 
         elif self.current_state == "GAMEOVER":

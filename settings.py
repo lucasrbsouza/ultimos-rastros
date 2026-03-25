@@ -37,3 +37,5 @@ JUMP_FRAMES = 7 # Jump às vezes é só um quadro de subida e um de descida
 # Fator de escala visual (quanto maior, maior o boneco na tela)
 # Um valor como 3.0 ou 3.5 deve ficar bom com a sua escala de jogo
 PLAYER_VISUAL_SCALE = 3.5
+
+GOOD_ENDING_THRESHOLD = 5  # memórias mínimas para o final bom

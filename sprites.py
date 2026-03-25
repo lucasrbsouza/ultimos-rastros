@@ -336,3 +336,39 @@ class StaticObject(pygame.sprite.Sprite):
 
     def update(self, x_shift):
         self.rect.x += x_shift
+
+
+LADDER_IMAGE_PATH = 'assets/objetos/Ladders/'
+
+class Ladder(pygame.sprite.Sprite):
+    """Superfície escalável. Usado pelo caractere 'C' no mapa."""
+    def __init__(self, pos, size):
+        super().__init__()
+
+        path = None
+        try:
+            arquivos = sorted(f for f in os.listdir(LADDER_IMAGE_PATH)
+                              if f.lower().endswith(('.png', '.jpg')))
+            if arquivos:
+                path = LADDER_IMAGE_PATH + arquivos[0]
+        except FileNotFoundError:
+            pass
+
+        if path:
+            try:
+                self.image = pygame.image.load(path).convert_alpha()
+                self.image = pygame.transform.scale(self.image, (size, size))
+            except Exception:
+                self.image = self._fallback(size)
+        else:
+            self.image = self._fallback(size)
+
+        self.rect = self.image.get_rect(topleft=pos)
+
+    def _fallback(self, size):
+        surf = pygame.Surface((size, size))
+        surf.fill((139, 90, 43))
+        return surf
+
+    def update(self, x_shift):
+        self.rect.x += x_shift

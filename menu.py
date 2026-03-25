@@ -518,7 +518,7 @@ class GameOverMenu:
             self.screen.blit(fade, (0, 0))
 
 class VictoryMenu:
-    def __init__(self, screen):
+    def __init__(self, screen, ending='good'):
         self.screen = screen
         self.clock_ticks = 0
 
@@ -560,6 +560,14 @@ class VictoryMenu:
 
         # --- Linha de brilho pré-renderizada ---
         self._glow_line = self._build_glow_line(width=520, color=(220, 170, 30))
+
+        # --- Textos do final ---
+        if ending == 'good':
+            self.title_text    = "A Floresta Lembra"
+            self.subtitle_text = "O Curupira vive enquanto houver memória."
+        else:
+            self.title_text    = "O Silêncio Vence"
+            self.subtitle_text = "Sem memórias, o guardião se apaga para sempre."
 
         # --- Animação ---
         self.fade_alpha    = 0
@@ -723,7 +731,7 @@ class VictoryMenu:
         # ── título com pop-in e glow ──
         title_cx = SCREEN_WIDTH  // 2
         title_cy = SCREEN_HEIGHT // 2 - 100
-        self._draw_title_glow("A Lenda Vive!", title_cx, title_cy,
+        self._draw_title_glow(self.title_text, title_cx, title_cy,
                                self.title_scale, self.fade_alpha)
 
         # ── linha decorativa ──
@@ -737,7 +745,7 @@ class VictoryMenu:
             int(120 + 30 * pulse),
         )
         sub_surf = pygame.font.Font(None, 38).render(
-            "Você completou a jornada", True, sub_color
+            self.subtitle_text, True, sub_color
         )
         sub_surf.set_alpha(self.subtitle_alpha)
         sub_rect = sub_surf.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 14))

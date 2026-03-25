@@ -1,24 +1,16 @@
 {
   "health": 5,
-  "memories": 4,
+  "memories": 2,
   "collected_positions": [
     [
-      1620,
+      1080,
       420
-    ],
-    [
-      1500,
-      300
     ],
     [
       420,
       300
-    ],
-    [
-      720,
-      180
     ]
   ],
-  "player_x": 1600,
-  "player_y": 400
+  "player_x": 1100,
+  "player_y": 356
 }

@@ -5,6 +5,7 @@ PLAYER_WALK_PATH   = 'assets/player_spritesheet/Walk.png'
 PLAYER_RUN_PATH    = 'assets/player_spritesheet/Run.png'
 PLAYER_JUMP_PATH   = 'assets/player_spritesheet/Jump.png'
 PLAYER_ATTACK_PATH = 'assets/player_spritesheet/Attack_1.png'
+PLAYER_HURT_PATH   = 'assets/player_spritesheet/Hurt.png'
 JUMP_SOUND_PATH = 'assets/sounds/jump.mp3'
 DAMAGE_SOUND_PATH = 'assets/sounds/damage.mp3'
 
@@ -98,7 +99,7 @@ class Player(pygame.sprite.Sprite):
         return image
 
     def import_character_assets(self):
-        self.animations = {'idle': [], 'walk': [], 'run': [], 'jump': [], 'attack': []}
+        self.animations = {'idle': [], 'walk': [], 'run': [], 'jump': [], 'attack': [], 'hurt': []}
         scale = 0.80
 
         try:
@@ -107,12 +108,14 @@ class Player(pygame.sprite.Sprite):
             player_run    = pygame.image.load(PLAYER_RUN_PATH).convert_alpha()
             player_jump   = pygame.image.load(PLAYER_JUMP_PATH).convert_alpha()
             player_attack = pygame.image.load(PLAYER_ATTACK_PATH).convert_alpha()
+            player_hurt   = pygame.image.load(PLAYER_HURT_PATH).convert_alpha()
 
             frames_idle   = 5
             frames_walk   = 8
             frames_run    = 8
             frames_jump   = 7
             frames_attack = 5
+            frames_hurt   = 2
 
             for sheet, key, frames in [
                 (player_idle,   'idle',   frames_idle),
@@ -120,6 +123,7 @@ class Player(pygame.sprite.Sprite):
                 (player_run,    'run',    frames_run),
                 (player_jump,   'jump',   frames_jump),
                 (player_attack, 'attack', frames_attack),
+                (player_hurt,   'hurt',   frames_hurt),
             ]:
                 fw = sheet.get_width() // frames
                 fh = sheet.get_height()
@@ -206,7 +210,9 @@ class Player(pygame.sprite.Sprite):
                 self.run_release_timer = self.run_release_buffer  # não cancela ainda
 
     def get_status(self):
-        if self.is_attacking:
+        if self.is_invincible:
+            self.status = 'hurt'
+        elif self.is_attacking:
             self.status = 'attack'
         elif self.on_ladder and self.direction.y != 0:
             self.status = 'jump'
@@ -222,12 +228,18 @@ class Player(pygame.sprite.Sprite):
     def animate(self):
         animation = self.animations[self.status]
 
+        if self.frame_index >= len(animation):
+            self.frame_index = 0
+
         self.frame_index += self.animation_speed
         if self.frame_index >= len(animation):
             if self.status == 'attack':
                 self.is_attacking = False
                 self.pending_fire = True
-            self.frame_index = 0
+            if self.status != 'hurt':
+                self.frame_index = 0
+            else:
+                self.frame_index = len(animation) - 1
 
         idx = int(self.frame_index)
 

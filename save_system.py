@@ -1,7 +1,9 @@
 import json
 import os
+import datetime
 
 SAVE_PATH = 'save.json'
+HISTORY_PATH = 'history.json'
 
 def save_game(player, collected_positions, world_offset=0):
     """
@@ -50,3 +52,31 @@ def delete_save():
 def has_save():
     """Retorna True se existe um save válido."""
     return load_game() is not None
+
+
+def save_history(elapsed_seconds, deaths):
+    """Registra uma vitória no histórico (elapsed_seconds = tempo total, deaths = mortes)."""
+    history = load_history()
+    entry = {
+        'date': datetime.datetime.now().strftime('%d/%m/%Y %H:%M'),
+        'time_seconds': int(elapsed_seconds),
+        'deaths': deaths,
+    }
+    history.append(entry)
+    with open(HISTORY_PATH, 'w') as f:
+        json.dump(history, f, indent=2)
+    print(f"Histórico salvo: {entry}")
+
+
+def load_history():
+    """Retorna a lista de entradas do histórico (mais recente primeiro)."""
+    if not os.path.exists(HISTORY_PATH):
+        return []
+    try:
+        with open(HISTORY_PATH, 'r') as f:
+            data = json.load(f)
+        if isinstance(data, list):
+            return data
+        return []
+    except (json.JSONDecodeError, ValueError):
+        return []

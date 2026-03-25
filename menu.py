@@ -1,7 +1,7 @@
 import pygame
 from settings import *
 from ui import Button
-from save_system import has_save
+from save_system import has_save, load_history
 import math, random
 
 BG_MENU_PATH = 'assets/backgrounds_statics/bg_menu.png'
@@ -40,16 +40,18 @@ class MainMenu:
         if self.has_save:
             self.btn_continue = Button(cx, base_y,        btn_w, btn_h, "Continuar",  self.font_button)
             self.btn_new_game = Button(cx, base_y + 70,   btn_w, btn_h, "Novo Jogo",  self.font_button)
-            self.btn_credits  = Button(cx, base_y + 140,  btn_w, btn_h, "Créditos",   self.font_button)
-            self.btn_quit     = Button(cx, base_y + 210,  btn_w, btn_h, "Sair",       self.font_button)
+            self.btn_history  = Button(cx, base_y + 140,  btn_w, btn_h, "Histórico",  self.font_button)
+            self.btn_credits  = Button(cx, base_y + 210,  btn_w, btn_h, "Créditos",   self.font_button)
+            self.btn_quit     = Button(cx, base_y + 280,  btn_w, btn_h, "Sair",       self.font_button)
+            self._btn_offsets = [160, 160, 160, 160, 160]
+            self._btn_delays  = [0, 0, 0, 0, 0]
+        else:
+            self.btn_play    = Button(cx, base_y,        btn_w, btn_h, "Jogar",     self.font_button)
+            self.btn_history = Button(cx, base_y + 70,   btn_w, btn_h, "Histórico", self.font_button)
+            self.btn_credits = Button(cx, base_y + 140,  btn_w, btn_h, "Créditos",  self.font_button)
+            self.btn_quit    = Button(cx, base_y + 210,  btn_w, btn_h, "Sair",      self.font_button)
             self._btn_offsets = [160, 160, 160, 160]
             self._btn_delays  = [0, 0, 0, 0]
-        else:
-            self.btn_play    = Button(cx, base_y,        btn_w, btn_h, "Jogar",    self.font_button)
-            self.btn_credits = Button(cx, base_y + 70,   btn_w, btn_h, "Créditos", self.font_button)
-            self.btn_quit    = Button(cx, base_y + 140,  btn_w, btn_h, "Sair",     self.font_button)
-            self._btn_offsets = [160, 160, 160]
-            self._btn_delays  = [0, 0, 0]
 
         # --- Partículas (vaga-lumes verdes subindo) ---
         self.particles = [self._new_particle(random.randint(0, SCREEN_HEIGHT))
@@ -201,6 +203,7 @@ class MainMenu:
             self.btn_new_game.update(mouse_pos)
         else:
             self.btn_play.update(mouse_pos)
+        self.btn_history.update(mouse_pos)
         self.btn_credits.update(mouse_pos)
         self.btn_quit.update(mouse_pos)
 
@@ -217,6 +220,8 @@ class MainMenu:
         else:
             if self.btn_play.is_clicked(event):
                 return "NEW_GAME"
+        if self.btn_history.is_clicked(event):
+            return "HISTORY"
         if self.btn_credits.is_clicked(event):
             return "CREDITS"
         if self.btn_quit.is_clicked(event):
@@ -258,9 +263,9 @@ class MainMenu:
 
         # ── botões deslizando ──
         if self.has_save:
-            buttons = [self.btn_continue, self.btn_new_game, self.btn_credits, self.btn_quit]
+            buttons = [self.btn_continue, self.btn_new_game, self.btn_history, self.btn_credits, self.btn_quit]
         else:
-            buttons = [self.btn_play, self.btn_credits, self.btn_quit]
+            buttons = [self.btn_play, self.btn_history, self.btn_credits, self.btn_quit]
 
         for i, btn in enumerate(buttons):
             off   = self._btn_offsets[i]
@@ -937,3 +942,207 @@ class CreditsMenu:
         # ── botão voltar ──
         btn_surf = pygame.Surface((SCREEN_WIDTH, 80), pygame.SRCALPHA)
         self.btn_back.draw(self.screen)
+
+
+class HistoryMenu:
+    ITEMS_PER_PAGE = 10
+
+    def __init__(self, screen):
+        self.screen = screen
+        self.clock_ticks = 0
+
+        self.font_title  = pygame.font.Font(None, 72)
+        self.font_header = pygame.font.Font(None, 26)
+        self.font_row    = pygame.font.Font(None, 28)
+        self.font_button = pygame.font.Font(None, 34)
+
+        try:
+            self.bg_image = pygame.transform.scale(
+                pygame.image.load(BG_MENU_PATH).convert(),
+                (SCREEN_WIDTH, SCREEN_HEIGHT)
+            )
+        except FileNotFoundError:
+            self.bg_image = None
+
+        self.history = list(reversed(load_history()))  # mais recente primeiro
+        self.page = 0
+        self.total_pages = max(1, math.ceil(len(self.history) / self.ITEMS_PER_PAGE))
+
+        btn_w, btn_h = 180, 44
+        cy_btns = SCREEN_HEIGHT - 72
+        self.btn_back = Button(
+            SCREEN_WIDTH // 2 - btn_w // 2, cy_btns,
+            btn_w, btn_h, "<- Voltar", self.font_button
+        )
+        self.btn_prev = Button(
+            SCREEN_WIDTH // 2 - btn_w - 20, cy_btns,
+            btn_w, btn_h, "< Anterior", self.font_button
+        )
+        self.btn_next = Button(
+            SCREEN_WIDTH // 2 + 20, cy_btns,
+            btn_w, btn_h, "Próxima >", self.font_button
+        )
+
+        self._particle_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        self.particles = [self._new_particle(random.randint(0, SCREEN_HEIGHT)) for _ in range(50)]
+        self._glow_line = self._build_glow_line(500, (80, 180, 100))
+        self.fade_alpha = 0
+
+    def _new_particle(self, start_y=None):
+        return {
+            "x": random.uniform(0, SCREEN_WIDTH),
+            "y": start_y if start_y is not None else SCREEN_HEIGHT + 5,
+            "speed": random.uniform(0.3, 1.0),
+            "size": random.uniform(1.5, 3.0),
+            "alpha": random.randint(80, 180),
+            "phase": random.uniform(0, math.pi * 2),
+            "color": random.choice([(100,220,120),(140,255,150),(80,200,100),(180,255,180)]),
+        }
+
+    def _draw_particles(self):
+        self._particle_surf.fill((0, 0, 0, 0))
+        t = self.clock_ticks * 0.015
+        for p in self.particles:
+            p["y"] -= p["speed"]
+            p["x"] += math.sin(t + p["phase"]) * 0.5
+            if p["y"] < -10:
+                p.update(self._new_particle())
+            r, g, b = p["color"]
+            pygame.draw.circle(self._particle_surf, (r, g, b, 25), (int(p["x"]), int(p["y"])), int(p["size"] * 2.5))
+            pygame.draw.circle(self._particle_surf, (r, g, b, p["alpha"]), (int(p["x"]), int(p["y"])), int(p["size"]))
+        self.screen.blit(self._particle_surf, (0, 0))
+
+    def _build_glow_line(self, width, color):
+        surf = pygame.Surface((width, 4), pygame.SRCALPHA)
+        r, g, b = color
+        for i in range(width):
+            fade = math.sin((i / width) * math.pi) ** 1.5
+            surf.set_at((i, 1), (r, g, b, int(fade * 180)))
+            surf.set_at((i, 2), (r, g, b, int(fade * 70)))
+        return surf
+
+    def _draw_glow_line(self, y):
+        x = SCREEN_WIDTH // 2 - self._glow_line.get_width() // 2
+        self.screen.blit(self._glow_line, (x, y))
+
+    @staticmethod
+    def _fmt_time(seconds):
+        s = int(seconds)
+        m, s = divmod(s, 60)
+        h, m = divmod(m, 60)
+        if h:
+            return f"{h}h {m:02d}m {s:02d}s"
+        return f"{m:02d}m {s:02d}s"
+
+    def update(self):
+        self.clock_ticks += 1
+        self.fade_alpha = min(255, self.fade_alpha + 8)
+        mouse_pos = pygame.mouse.get_pos()
+        self.btn_back.update(mouse_pos)
+        if self.page > 0:
+            self.btn_prev.update(mouse_pos)
+        if self.page < self.total_pages - 1:
+            self.btn_next.update(mouse_pos)
+
+    def handle_event(self, event):
+        if self.btn_back.is_clicked(event):
+            return "MENU"
+        if self.page > 0 and self.btn_prev.is_clicked(event):
+            self.page -= 1
+        if self.page < self.total_pages - 1 and self.btn_next.is_clicked(event):
+            self.page += 1
+        return None
+
+    def draw(self):
+        if self.bg_image:
+            self.screen.blit(self.bg_image, (0, 0))
+        else:
+            self.screen.fill((10, 18, 12))
+
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+        overlay.set_alpha(160)
+        overlay.fill((8, 16, 10))
+        self.screen.blit(overlay, (0, 0))
+
+        self._draw_particles()
+
+        # ── título ──
+        pulse = 0.5 + 0.5 * math.sin(self.clock_ticks * 0.03)
+        title_color = (int(160 + 60 * pulse), int(220 + 35 * pulse), int(170 + 40 * pulse))
+        title_surf = self.font_title.render("Histórico", True, title_color)
+        title_surf.set_alpha(self.fade_alpha)
+        self.screen.blit(title_surf, title_surf.get_rect(center=(SCREEN_WIDTH // 2, 68)))
+        self._draw_glow_line(100)
+
+        # ── painel ──
+        panel_w, panel_h = 760, 460
+        panel_x = SCREEN_WIDTH  // 2 - panel_w // 2
+        panel_y = 118
+        panel_surf = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+        panel_surf.fill((8, 20, 14, 210))
+        self.screen.blit(panel_surf, (panel_x, panel_y))
+        pulse_b = 0.5 + 0.5 * math.sin(self.clock_ticks * 0.04)
+        pygame.draw.rect(self.screen, (80, 180, 110, int(80 + 80 * pulse_b)),
+                         (panel_x, panel_y, panel_w, panel_h), 2, border_radius=6)
+
+        # ── cabeçalho ──
+        pad = 24
+        col_n   = panel_x + pad
+        col_d   = panel_x + pad + 38
+        col_t   = panel_x + pad + 260
+        col_m   = panel_x + pad + 480
+        header_y = panel_y + 14
+
+        for text, x in [("#", col_n), ("Data", col_d), ("Tempo", col_t), ("Mortes", col_m)]:
+            s = self.font_header.render(text, True, (100, 200, 130))
+            s.set_alpha(self.fade_alpha)
+            self.screen.blit(s, (x, header_y))
+
+        sep = pygame.Surface((panel_w - pad * 2, 1), pygame.SRCALPHA)
+        sep.fill((80, 160, 100, 80))
+        self.screen.blit(sep, (panel_x + pad, header_y + 22))
+
+        # ── linhas de dados ──
+        start = self.page * self.ITEMS_PER_PAGE
+        items = self.history[start: start + self.ITEMS_PER_PAGE]
+        row_h = 40
+        row_y = panel_y + 44
+
+        if not self.history:
+            empty = self.font_row.render("Nenhuma vitória registrada ainda.", True, (160, 200, 170))
+            empty.set_alpha(self.fade_alpha)
+            self.screen.blit(empty, empty.get_rect(center=(SCREEN_WIDTH // 2, panel_y + panel_h // 2)))
+        else:
+            for i, entry in enumerate(items):
+                global_idx = start + i + 1
+                even = i % 2 == 0
+                if even:
+                    row_bg = pygame.Surface((panel_w - pad, row_h - 2), pygame.SRCALPHA)
+                    row_bg.fill((255, 255, 255, 8))
+                    self.screen.blit(row_bg, (panel_x + pad // 2, row_y + i * row_h - 4))
+
+                color = (220, 255, 230) if even else (190, 230, 200)
+
+                def rend(txt, x, y):
+                    s = self.font_row.render(txt, True, color)
+                    s.set_alpha(self.fade_alpha)
+                    self.screen.blit(s, (x, y))
+
+                y = row_y + i * row_h
+                rend(str(global_idx), col_n, y)
+                rend(entry.get('date', '-'), col_d, y)
+                rend(self._fmt_time(entry.get('time_seconds', 0)), col_t, y)
+                rend(str(entry.get('deaths', 0)), col_m, y)
+
+        # ── paginação ──
+        page_text = self.font_header.render(
+            f"Página {self.page + 1} de {self.total_pages}", True, (140, 200, 160)
+        )
+        page_text.set_alpha(self.fade_alpha)
+        self.screen.blit(page_text, page_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 100)))
+
+        self.btn_back.draw(self.screen)
+        if self.page > 0:
+            self.btn_prev.draw(self.screen)
+        if self.page < self.total_pages - 1:
+            self.btn_next.draw(self.screen)

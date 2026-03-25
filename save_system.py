@@ -3,18 +3,26 @@ import os
 
 SAVE_PATH = 'save.json'
 
-def save_game(player, collected_positions):
+def save_game(player, collected_positions, world_offset=0):
     """
     Salva o estado do jogador e a lista de posições das memórias já coletadas.
 
-    collected_positions: set de tuplas (x, y) — posição rect.topleft de cada
-    Memory coletada. Usamos topleft porque é o que setup_level() usa ao criar
-    os sprites (col * TILE_SIZE, row * TILE_SIZE).
+    collected_positions: set de tuplas (x, y) — posição ORIGINAL do mapa
+    (map_pos), que não muda com a câmera.
+
+    world_offset: deslocamento acumulado do mundo (para recalcular a posição
+    real do jogador no mapa).
     """
+    # Posição real do jogador no mapa = posição na tela - deslocamento acumulado
+    player_map_x = player.rect.x - world_offset
+    player_map_y = player.rect.y
+
     data = {
         'health':   player.current_health,
         'memories': player.memories,
         'collected_positions': [list(pos) for pos in collected_positions],
+        'player_x': player_map_x,
+        'player_y': player_map_y,
     }
     with open(SAVE_PATH, 'w') as f:
         json.dump(data, f, indent=2)

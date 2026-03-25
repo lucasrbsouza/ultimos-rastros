@@ -70,6 +70,9 @@ class Memory(pygame.sprite.Sprite):
     def __init__(self, pos, size):
         super().__init__()
         
+        # ── CORREÇÃO: guarda a posição original do mapa (nunca muda com câmera) ──
+        self.map_pos = (pos[0], pos[1])
+        
         self.frames = []
         self.frame_index = 0
         self.animation_speed = 0.15 # Velocidade da animação (ajuste a gosto)

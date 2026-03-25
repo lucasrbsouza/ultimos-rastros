@@ -26,6 +26,9 @@ class Level:
         self.hud = HUD(self.display_surface)
         self.world_shift = 0
 
+        # ── CORREÇÃO: acumulador de deslocamento total do mundo ──
+        self.total_world_offset = 0
+
         # Posições (tuplas) das memórias já coletadas — carregadas do save ou vazias
         if save_data and 'collected_positions' in save_data:
             self.collected_positions = set(
@@ -57,14 +60,12 @@ class Level:
                 y = row_index * TILE_SIZE
                 
                 if cell == 'X':
-                    # Cria superfície (grama)
                     tile = Tile((x, y), TILE_SIZE)
                     self.tiles.add(tile)
                 
-                elif cell == 'D': # Novo bloco de terra
-                    # Cria preenchimento (terra)
+                elif cell == 'D':
                     dirt_tile = Dirt((x, y), TILE_SIZE)
-                    self.tiles.add(dirt_tile) # Adiciona no mesmo grupo para colisões
+                    self.tiles.add(dirt_tile)
 
                 elif cell == 'P': 
                     player_sprite = Player((x, y))
@@ -75,7 +76,7 @@ class Level:
                     self.enemies.add(enemy_sprite)
                 
                 elif cell == 'M':
-                    # Só cria o sprite se esta posição ainda NÃO foi coletada
+                    # ── CORREÇÃO: compara com a posição do mapa (x, y) ──
                     if (x, y) not in self.collected_positions:
                         memory_sprite = Memory((x, y), TILE_SIZE)
                         self.memories.add(memory_sprite)
@@ -89,18 +90,22 @@ class Level:
                     self.tiles.add(water_tile)
                 
                 elif cell in ['1', '2', '3']:
-                    # pos = (x,y), folder = 'Trees', image = '1.png', etc.
                     tree = StaticObject((x, y), 'Trees', f'{cell}.png', TILE_SIZE)
                     self.objects.add(tree)
                 elif cell in ['4', '5', '6']:
-                    # pos = (x,y), folder = 'Trees', image = '1.png', etc.
                     tree = StaticObject((x, y), 'Bushes', f'{cell}.png', TILE_SIZE)
                     self.objects.add(tree)
-        # Aplica estado salvo ao player se houver save
+
+        # ── CORREÇÃO: Aplica estado salvo ao player (incluindo posição) ──
         if save_data:
             player = self.player.sprite
             player.memories       = save_data.get('memories', 0)
             player.current_health = save_data.get('health', player.max_health)
+
+            # Restaura posição do jogador se existir no save
+            if 'player_x' in save_data and 'player_y' in save_data:
+                player.rect.x = save_data['player_x']
+                player.rect.y = save_data['player_y']
 
         for enemy in self.enemies:
             enemy.player_ref = self.player.sprite
@@ -136,21 +141,19 @@ class Level:
 
     def vertical_movement_collision(self):
         self.player.sprite.apply_gravity()
-        self.player.sprite.on_ground = False  # reseta ANTES do loop, todo frame
+        self.player.sprite.on_ground = False
 
         for sprite in self.tiles.sprites():
             if sprite.rect.colliderect(self.player.sprite.rect):
                 
-                # Caindo — pousa em cima da plataforma
                 if self.player.sprite.direction.y > 0:
                     self.player.sprite.rect.bottom = sprite.rect.top
                     self.player.sprite.direction.y = 0
-                    self.player.sprite.on_ground = True   # ← aterrisou
+                    self.player.sprite.on_ground = True
 
-                # Subindo — bateu embaixo da plataforma
                 elif self.player.sprite.direction.y < 0:
                     self.player.sprite.rect.top = sprite.rect.bottom
-                    self.player.sprite.direction.y = 0  # só para, a gravidade faz o resto
+                    self.player.sprite.direction.y = 0
 
     def check_collectibles(self):
         player = self.player.sprite
@@ -158,11 +161,11 @@ class Level:
         if collided_memories:
             player.memories += len(collided_memories)
 
-            # Registra as posições coletadas e salva imediatamente
+            # ── CORREÇÃO: salva map_pos (posição original) em vez de rect.topleft ──
             for memory in collided_memories:
-                self.collected_positions.add(memory.rect.topleft)
+                self.collected_positions.add(memory.map_pos)
 
-            save_game(player, self.collected_positions)
+            save_game(player, self.collected_positions, self.total_world_offset)
 
             if self.collect_sound:
                 self.collect_sound.play()
@@ -176,14 +179,12 @@ class Level:
 
         hit_enemies = pygame.sprite.spritecollide(player, self.enemies, False)
         if hit_enemies:
-            # Pega o primeiro inimigo que colidiu
             enemy = hit_enemies[0]
             
-            # Descobre de qual lado o inimigo está
             if enemy.rect.centerx < player.rect.centerx:
-                knockback_direction = 1   # inimigo à esquerda → empurra para direita
+                knockback_direction = 1
             else:
-                knockback_direction = -1  # inimigo à direita → empurra para esquerda
+                knockback_direction = -1
             
             player.take_damage(1, knockback_direction)
 
@@ -201,8 +202,6 @@ class Level:
 
     def draw_visible(self, group):
         """Desenha apenas os sprites que estão dentro da tela visível."""
-        # Péga o retângulo da tela e expande um tile para cada lado
-        # para evitar que sprites "apa reçam" bruscamente na borda
         visible_area = self.display_surface.get_rect().inflate(TILE_SIZE * 2, TILE_SIZE * 2)
 
         for sprite in group:
@@ -213,6 +212,9 @@ class Level:
         self.parallax.update(self.world_shift)
         self.parallax.draw(self.display_surface)
         
+        # ── CORREÇÃO: acumula o deslocamento total ──
+        self.total_world_offset += self.world_shift
+
         self.tiles.update(self.world_shift)
         self.draw_visible(self.tiles)
 
@@ -240,13 +242,11 @@ class Level:
         
         visual_rect = player.image.get_rect(midbottom=player.rect.midbottom)
         
-        # Pisca durante i-frames
         if player.blink():
-            player.image.set_alpha(40)   # quase transparente
+            player.image.set_alpha(40)
         else:
-            player.image.set_alpha(255)  # totalmente visível
+            player.image.set_alpha(255)
         
-        # Desenha a imagem na tela usando a posição do retângulo visual
         self.display_surface.blit(player.image, visual_rect)
         
         self.hud.show_health(self.player.sprite.current_health, self.player.sprite.max_health)

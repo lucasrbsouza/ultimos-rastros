@@ -39,3 +39,11 @@ JUMP_FRAMES = 7 # Jump às vezes é só um quadro de subida e um de descida
 PLAYER_VISUAL_SCALE = 3.5
 
 GOOD_ENDING_THRESHOLD = 5  # memórias mínimas para o final bom
+
+# Progressão de habilidades
+STAGE_THRESHOLDS = {
+    'rastro_confuso':    0,   # início — só anda e pula
+    'passos_invisiveis': 3,   # Fire Arrow desbloqueada
+    'sussurro_mata':     5,   # Poder especial (brado)
+    'guardiao_desperto': 7,   # Vida máxima aumenta
+}

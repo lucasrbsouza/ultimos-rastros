@@ -172,6 +172,7 @@ class Level:
         collided_memories = pygame.sprite.spritecollide(player, self.memories, True)
         if collided_memories:
             player.memories += len(collided_memories)
+            player.update_stage()
 
             # ── CORREÇÃO: salva map_pos (posição original) em vez de rect.topleft ──
             for memory in collided_memories:
@@ -181,6 +182,29 @@ class Level:
 
             if self.collect_sound:
                 self.collect_sound.play()
+
+    def check_brado(self):
+        """Executa o brado do Curupira: dano em área e confunde inimigos."""
+        player = self.player.sprite
+        if not player.pending_brado:
+            return
+
+        player.pending_brado = False
+        brado_range = 200
+
+        affected = []
+        for enemy in self.enemies:
+            dist = pygame.math.Vector2(
+                enemy.rect.centerx - player.rect.centerx,
+                enemy.rect.centery - player.rect.centery
+            ).length()
+            if dist <= brado_range:
+                affected.append(enemy)
+
+        for enemy in affected:
+            enemy.confuse(affected)
+
+        self._brado_flash_timer = 20
 
     def check_damage(self):
         """Verifica colisão com inimigos e aplica dano."""
@@ -276,20 +300,32 @@ class Level:
         self.projectiles.update(self.world_shift)
         self.check_projectiles()
         self.projectiles.draw(self.display_surface)
-        
+
+        self.check_brado()
+
         player = self.player.sprite
-        
+
         visual_rect = player.image.get_rect(midbottom=player.rect.midbottom)
-        
+
         if player.blink():
             player.image.set_alpha(40)
         else:
             player.image.set_alpha(255)
-        
+
         self.display_surface.blit(player.image, visual_rect)
-        
+
+        # Flash do brado
+        if hasattr(self, '_brado_flash_timer') and self._brado_flash_timer > 0:
+            self._brado_flash_timer -= 1
+            flash_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            alpha = int(60 * (self._brado_flash_timer / 20))
+            pygame.draw.circle(flash_surf, (100, 255, 150, alpha),
+                               player.rect.center, 200)
+            self.display_surface.blit(flash_surf, (0, 0))
+
         self.hud.show_health(self.player.sprite.current_health, self.player.sprite.max_health)
-        self.hud.show_memories(self.player.sprite.memories)
+        self.hud.show_memories(self.player.sprite.memories, self.player.sprite.stage)
+        self.hud.show_brado_cooldown(self.player.sprite.get_brado_cooldown_ratio())
         
         if self.check_death():
             return "GAMEOVER"

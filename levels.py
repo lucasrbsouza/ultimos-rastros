@@ -11,11 +11,11 @@ LEVEL_MAP = [
     '                                           ',  # 00 - céu
     '                                           ',  # 01 - céu
     '    3                          1           ',  # 02 - decoração alta
-    '   XXX      M       5         XXX          ',  # 03 - plataforma alta
-    '            XXX    XXXM                    ',  # 04 - plataforma média-alta
-    ' P 5    M   XXXXX         M         2       ',  # 05 - plataforma média
-    ' XXX XXXX                       CXXXX     ',  # 06 - suporte (C=topo da escada)
-    '               M    E   M       C     G  ',  # 07 - chão do jogador (C=escada, X=prateleira ledge grab)
+    '   XXX      MMM     5         XXX          ',  # 03 - plataforma alta
+    '           CXXX    XXXM                    ',  # 04 - plataforma média-alta
+    ' P 5 MMMM   XXXXX         M         2       ',  # 05 - plataforma média
+    ' XXX XXXXMMM                     CXXXX     ',  # 06 - suporte (C=topo da escada)
+    '               X    E   M E      C     G  ',  # 07 - chão do jogador (C=escada, X=prateleira ledge grab)
     'XXXXX  XXXXXX  XXXXXXXX  XXXXXXXXXXXXXXWWW ',  # 08 - chão principal
     'DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD',  # 09 - terra
     'DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD',  # 10 - terra

@@ -1,4 +1,5 @@
 import pygame
+from settings import STAGE_THRESHOLDS
 
 PLAYER_IDLE_PATH   = 'assets/player_spritesheet/Idle.png'
 PLAYER_WALK_PATH   = 'assets/player_spritesheet/Walk.png'
@@ -70,6 +71,14 @@ class Player(pygame.sprite.Sprite):
         self.current_health = 5
         self.memories = 0
         self.is_invincible = False
+
+        # Progressão de habilidades
+        self.stage = 'rastro_confuso'
+        self.can_shoot = False
+        self.brado_ready = False
+        self._brado_cooldown = 8000
+        self._last_brado_time = 0
+        self.pending_brado = False
         self.invincibility_duration = 1000 
         self.hurt_time = 0
 
@@ -178,16 +187,52 @@ class Player(pygame.sprite.Sprite):
         if keys[pygame.K_UP] or keys[pygame.K_w] or keys[pygame.K_SPACE]:
             self.jump_buffer_timer = self.jump_buffer_time  # ← guarda a intenção
     
+    def get_brado_cooldown_ratio(self):
+        """Retorna o quanto do cooldown já passou: 0.0 = recém usado, 1.0 = pronto."""
+        if not self.brado_ready:
+            return None
+        elapsed = pygame.time.get_ticks() - self._last_brado_time
+        return min(elapsed / self._brado_cooldown, 1.0)
+
+    def update_stage(self):
+        """Reavalia o estágio com base nas memórias atuais."""
+        m = self.memories
+
+        if m >= STAGE_THRESHOLDS['guardiao_desperto']:
+            if self.stage != 'guardiao_desperto':
+                self.stage = 'guardiao_desperto'
+                self.max_health += 2
+                self.current_health = min(self.current_health + 2, self.max_health)
+
+        elif m >= STAGE_THRESHOLDS['sussurro_mata']:
+            self.stage = 'sussurro_mata'
+            self.brado_ready = True
+
+        elif m >= STAGE_THRESHOLDS['passos_invisiveis']:
+            self.stage = 'passos_invisiveis'
+            self.can_shoot = True
+
+        else:
+            self.stage = 'rastro_confuso'
+
     def handle_event(self, event):
         if event.type == pygame.KEYDOWN:
             now = pygame.time.get_ticks()
 
             # Disparo da Fire Arrow — tecla Z
             if event.key == pygame.K_z:
-                if now - self._last_fire_time >= self._fire_cooldown:
-                    self._last_fire_time = now
-                    self.is_attacking = True
-                    self.frame_index = 0
+                if self.can_shoot:
+                    if now - self._last_fire_time >= self._fire_cooldown:
+                        self._last_fire_time = now
+                        self.is_attacking = True
+                        self.frame_index = 0
+
+            # Brado do Curupira — tecla X
+            if event.key == pygame.K_x:
+                if self.brado_ready:
+                    if now - self._last_brado_time >= self._brado_cooldown:
+                        self._last_brado_time = now
+                        self.pending_brado = True
 
             if event.key in (pygame.K_RIGHT, pygame.K_d, pygame.K_LEFT, pygame.K_a):
                 

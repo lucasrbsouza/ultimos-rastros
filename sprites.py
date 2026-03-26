@@ -179,6 +179,16 @@ class Enemy(pygame.sprite.Sprite):
         self._hurt_time = 0          # ms do último dano recebido
         self._hurt_duration = 300    # ms piscando após levar dano
 
+        # ── Confusão (brado) ───────────────────────────────────────────
+        self._confused_until   = 0
+        self._confused_targets = []
+
+    def confuse(self, all_affected):
+        """Entra em estado confuso: ataca outros inimigos próximos por 5 segundos."""
+        self.state = 'confused'
+        self._confused_until = pygame.time.get_ticks() + 5000
+        self._confused_targets = [e for e in all_affected if e is not self]
+
     def take_damage(self, amount=1):
         """Recebe dano e retorna True se morreu."""
         self.health -= amount
@@ -233,9 +243,31 @@ class Enemy(pygame.sprite.Sprite):
 
     # ── update ──────────────────────────────────────────────────────────
     def update(self, x_shift):
+        now = pygame.time.get_ticks()
+
         # câmera
         self.rect.x    += x_shift
         self.origin_x  += x_shift   # ancora junto com o mundo
+
+        # Estado confuso: persegue outros inimigos, não o player
+        if self.state == 'confused':
+            if now >= self._confused_until:
+                self.state = 'patrol'
+            else:
+                if self._confused_targets:
+                    target = self._confused_targets[0]
+                    if target.alive():
+                        dx = target.rect.centerx - self.rect.centerx
+                        self.direction = 1 if dx > 0 else -1
+                        self.rect.x += self.direction * self.chase_speed
+                self._frame_index = (self._frame_index + self._anim_speed) % len(self._frames_left)
+                frames = self._frames_right if self.direction == 1 else self._frames_left
+                self.image = frames[int(self._frame_index)]
+                if now - self._hurt_time < self._hurt_duration:
+                    self.image.set_alpha(80 if (now // 80) % 2 == 0 else 255)
+                else:
+                    self.image.set_alpha(255)
+                return
 
         if self.state == 'patrol':
             self._patrol()

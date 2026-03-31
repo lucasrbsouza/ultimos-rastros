@@ -189,6 +189,7 @@ class Level:
         collided_memories = pygame.sprite.spritecollide(player, self.memories, True)
         if collided_memories:
             player.memories += len(collided_memories)
+            player.score += 50 * len(collided_memories)
             player.update_stage()
 
             # ── CORREÇÃO: salva map_pos (posição original) em vez de rect.topleft ──
@@ -254,11 +255,14 @@ class Level:
 
     def check_projectiles(self):
         """Verifica colisão de projéteis com inimigos."""
+        player = self.player.sprite
         for arrow in list(self.projectiles):
             hit = pygame.sprite.spritecollide(arrow, self.enemies, False)
             if hit:
                 arrow.kill()
-                hit[0].take_damage(1)
+                died = hit[0].take_damage(1)
+                if died:
+                    player.score += 100
 
     def check_key_and_door(self):
         """Coleta chave e abre a porta se o jogador tiver a chave."""
@@ -375,6 +379,7 @@ class Level:
         self.hud.show_health(self.player.sprite.current_health, self.player.sprite.max_health)
         self.hud.show_memories(self.player.sprite.memories, self.player.sprite.stage)
         self.hud.show_brado_cooldown(self.player.sprite.get_brado_cooldown_ratio())
+        self.hud.show_score(self.player.sprite.score)
         
         if self.check_death():
             return "GAMEOVER"

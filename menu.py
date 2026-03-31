@@ -518,7 +518,7 @@ class GameOverMenu:
             self.screen.blit(fade, (0, 0))
 
 class VictoryMenu:
-    def __init__(self, screen, ending='good'):
+    def __init__(self, screen, ending='good', score=0):
         self.screen = screen
         self.clock_ticks = 0
 
@@ -568,6 +568,9 @@ class VictoryMenu:
         else:
             self.title_text    = "O Silêncio Vence"
             self.subtitle_text = "Sem memórias, o guardião se apaga para sempre."
+
+        self.score = score
+        self.font_score = pygame.font.Font(None, 42)
 
         # --- Animação ---
         self.fade_alpha    = 0
@@ -750,6 +753,12 @@ class VictoryMenu:
         sub_surf.set_alpha(self.subtitle_alpha)
         sub_rect = sub_surf.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 14))
         self.screen.blit(sub_surf, sub_rect)
+
+        # ── pontuação ──
+        score_surf = self.font_score.render(f"Pontuação: {self.score}", True, (255, 230, 80))
+        score_surf.set_alpha(self.subtitle_alpha)
+        score_rect = score_surf.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 30))
+        self.screen.blit(score_surf, score_rect)
 
         # ── botões com fade-in ──
         btn_overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)

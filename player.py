@@ -70,6 +70,7 @@ class Player(pygame.sprite.Sprite):
         self.max_health = 5
         self.current_health = 5
         self.memories = 0
+        self.score = 0
         self.is_invincible = False
 
         # Progressão de habilidades
@@ -89,6 +90,21 @@ class Player(pygame.sprite.Sprite):
 
         # Animação de ataque
         self.is_attacking = False
+
+        # 6. Poderes da loja
+        # Voz da Floresta — congela inimigos
+        self.voz_floresta_active = False
+        self._voz_floresta_until = 0
+
+        # Chama Ancestral — próxima flecha faz 3× dano
+        self.chama_ancestral_charges = 0   # nº de disparos potencializados pendentes
+
+        # Sombra da Mata — intangível
+        self.sombra_mata_active = False
+        self._sombra_mata_until = 0
+
+        # Guardião Desperto (loja) — compra única
+        self.guardiao_vida_bought = False
 
         try:
             self.jump_sound = pygame.mixer.Sound(JUMP_SOUND_PATH)

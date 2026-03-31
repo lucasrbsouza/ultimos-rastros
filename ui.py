@@ -65,6 +65,11 @@ class HUD:
         stage_surf = self.font.render(nome, True, cor)
         self.display_surface.blit(stage_surf, stage_surf.get_rect(topleft=(20, 78)))
 
+    def show_score(self, score):
+        """Exibe a pontuação no canto superior direito."""
+        text_surf = self.font.render(f'{score}', True, (255, 230, 80))
+        self.display_surface.blit(text_surf, text_surf.get_rect(topright=(SCREEN_WIDTH - 20, 20)))
+
     def show_brado_cooldown(self, ratio):
         """Exibe o indicador de cooldown do Brado. ratio None = não exibe."""
         if ratio is None:

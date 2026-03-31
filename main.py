@@ -5,6 +5,8 @@ from settings import *
 from menu import MainMenu, GameOverMenu, VictoryMenu, CreditsMenu, HistoryMenu
 from level import Level
 from save_system import delete_save, load_game, has_save, save_history
+from cutscene import Cutscene
+from settings import CUTSCENE_TEXTS
 
 MENU_BGM_PATH = 'assets/sounds/menu_bgm.mp3'
 GAME_BGM_PATH = 'assets/sounds/game_bgm.mp3'
@@ -44,6 +46,12 @@ class Game:
         self._session_deaths = 0
         self._last_phase = 0
         self._last_memories = 0
+        self._last_score = 0
+        self.cutscene = None
+        self._next_phase_index = 0
+        self._carried_memories = 0
+        self._carried_health = 5
+        self._carried_score = 0
 
         self.current_state = None
         self.change_state("MENU")
@@ -68,8 +76,8 @@ class Game:
         if new_state == "MENU":
             self.main_menu = MainMenu(self.render_surface)
 
-        # Mantém a música ao entrar nos Créditos / Histórico
-        if new_state in ("CREDITS", "HISTORY"):
+        # Mantém a música ao entrar nos Créditos / Histórico / Cutscene
+        if new_state in ("CREDITS", "HISTORY", "CUTSCENE"):
             pygame.mixer.music.unpause()
             return
 
@@ -136,6 +144,7 @@ class Game:
                     self.level = Level(self.render_surface, phase_index=self._last_phase)
                     player = self.level.player.sprite
                     player.memories = self._last_memories
+                    player.score    = self._last_score
                     player.update_stage()
                     self.change_state("GAMEPLAY")
                 elif action == "MENU":
@@ -158,6 +167,20 @@ class Game:
                 action = self.history_menu.handle_event(event)
                 if action == "MENU":
                     self.change_state("MENU")
+
+            elif self.current_state == "CUTSCENE":
+                action = self.cutscene.handle_event(event)
+                if action == "DONE":
+                    self._load_next_phase()
+
+    def _load_next_phase(self):
+        self.level = Level(self.render_surface, phase_index=self._next_phase_index)
+        player = self.level.player.sprite
+        player.memories       = self._carried_memories
+        player.current_health = self._carried_health
+        player.score          = self._carried_score
+        player.update_stage()
+        self.change_state("GAMEPLAY")
 
     def _toggle_fullscreen(self):
         """Alterna entre tela cheia e janela redimensionável (F11)."""
@@ -184,6 +207,8 @@ class Game:
             self.credits_menu.update()
         elif self.current_state == "HISTORY":
             self.history_menu.update()
+        elif self.current_state == "CUTSCENE":
+            self.cutscene.update()
 
     def draw(self):
         if self.current_state == "MENU":
@@ -194,26 +219,30 @@ class Game:
             if game_status == "GAMEOVER":
                 self._last_phase = self.level.phase_index
                 self._last_memories = self.level.player.sprite.memories
+                self._last_score = self.level.player.sprite.score
                 self.game_over_menu = GameOverMenu(self.render_surface)
                 self.change_state("GAMEOVER")
             elif game_status == "NEXT_PHASE":
                 next_phase = self.level.phase_index + 1
-                # Preserva memórias e vida do jogador entre fases
                 old_player = self.level.player.sprite
-                carried_memories = old_player.memories
-                carried_health   = old_player.current_health
-                self.level = Level(self.render_surface, phase_index=next_phase)
-                new_player = self.level.player.sprite
-                new_player.memories       = carried_memories
-                new_player.current_health = carried_health
-                new_player.update_stage()
+                old_player.score += 500
+                self._carried_memories = old_player.memories
+                self._carried_health   = old_player.current_health
+                self._carried_score    = old_player.score
+                self._next_phase_index = next_phase
+                if next_phase - 1 in CUTSCENE_TEXTS:
+                    self.cutscene = Cutscene(self.render_surface, CUTSCENE_TEXTS[next_phase - 1])
+                    self.change_state("CUTSCENE")
+                else:
+                    self._load_next_phase()
             elif game_status in ("VICTORY_GOOD", "VICTORY_BAD"):
                 elapsed = time.time() - self._session_start if self._session_start else 0
                 save_history(elapsed, self._session_deaths)
                 delete_save()
                 self._session_start = None
                 ending_type = 'good' if game_status == "VICTORY_GOOD" else 'bad'
-                self.victory_menu = VictoryMenu(self.render_surface, ending=ending_type)
+                final_score = self.level.player.sprite.score + 500  # +500 pela fase final
+                self.victory_menu = VictoryMenu(self.render_surface, ending=ending_type, score=final_score)
                 self.change_state("VICTORY")
 
         elif self.current_state == "GAMEOVER":
@@ -225,6 +254,8 @@ class Game:
             self.credits_menu.draw()
         elif self.current_state == "HISTORY":
             self.history_menu.draw()
+        elif self.current_state == "CUTSCENE":
+            self.cutscene.draw()
 
         # Escala a surface lógica para a janela real (pygame.SCALED faz isso automaticamente
         # ao fazer blit da render_surface para a window)

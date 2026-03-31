@@ -43,6 +43,7 @@ class Game:
         self._session_start = None
         self._session_deaths = 0
         self._last_phase = 0
+        self._last_memories = 0
 
         self.current_state = None
         self.change_state("MENU")
@@ -133,6 +134,9 @@ class Game:
                     delete_save()
                     self._session_deaths += 1
                     self.level = Level(self.render_surface, phase_index=self._last_phase)
+                    player = self.level.player.sprite
+                    player.memories = self._last_memories
+                    player.update_stage()
                     self.change_state("GAMEPLAY")
                 elif action == "MENU":
                     self._session_start = None
@@ -189,6 +193,7 @@ class Game:
             game_status = self.level.run()
             if game_status == "GAMEOVER":
                 self._last_phase = self.level.phase_index
+                self._last_memories = self.level.player.sprite.memories
                 self.game_over_menu = GameOverMenu(self.render_surface)
                 self.change_state("GAMEOVER")
             elif game_status == "NEXT_PHASE":

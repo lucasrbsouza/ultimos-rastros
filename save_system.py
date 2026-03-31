@@ -5,7 +5,7 @@ import datetime
 SAVE_PATH = 'save.json'
 HISTORY_PATH = 'history.json'
 
-def save_game(player, collected_positions, world_offset=0):
+def save_game(player, collected_positions, world_offset=0, phase_index=0):
     """
     Salva o estado do jogador e a lista de posições das memórias já coletadas.
 
@@ -14,8 +14,9 @@ def save_game(player, collected_positions, world_offset=0):
 
     world_offset: deslocamento acumulado do mundo (para recalcular a posição
     real do jogador no mapa).
+
+    phase_index: índice da fase atual (0, 1 ou 2).
     """
-    # Posição real do jogador no mapa = posição na tela - deslocamento acumulado
     player_map_x = player.rect.x - world_offset
     player_map_y = player.rect.y
 
@@ -25,6 +26,7 @@ def save_game(player, collected_positions, world_offset=0):
         'collected_positions': [list(pos) for pos in collected_positions],
         'player_x': player_map_x,
         'player_y': player_map_y,
+        'phase':    phase_index,
     }
     with open(SAVE_PATH, 'w') as f:
         json.dump(data, f, indent=2)

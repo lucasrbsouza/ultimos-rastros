@@ -1,7 +1,7 @@
 import pygame
 from background import ParallaxBackground
 from settings import *
-from sprites import Tile, Memory, Enemy, Goal, Dirt, Water, StaticObject, FireArrow, Ladder
+from sprites import Tile, Memory, Enemy, Goal, Dirt, Water, StaticObject, FireArrow, Ladder, Key, LockedDoor
 from player import Player
 from ui import HUD
 from levels import *
@@ -11,11 +11,13 @@ COLLECT_SOUND_PATH = 'assets/sounds/collect.wav'
 BG_GAME_PATH = 'assets/backgrounds_statics/bg_game.png'
 
 class Level:
-    def __init__(self, surface, save_data=None):
+    def __init__(self, surface, save_data=None, phase_index=0):
         """
-        save_data: dicionário retornado por load_game(), ou None para novo jogo.
+        save_data:   dicionário retornado por load_game(), ou None para novo jogo.
+        phase_index: índice da fase atual (0, 1 ou 2).
         """
         self.display_surface = surface
+        self.phase_index = phase_index
 
         self.tiles = pygame.sprite.Group()
         self.player = pygame.sprite.GroupSingle()
@@ -24,11 +26,15 @@ class Level:
         self.goal = pygame.sprite.GroupSingle()
         self.projectiles = pygame.sprite.Group()
         self.ladders = pygame.sprite.Group()
+        self.keys = pygame.sprite.Group()
+        self.doors = pygame.sprite.GroupSingle()
+
+        self.has_key = False
 
         self.hud = HUD(self.display_surface)
         self.world_shift = 0
 
-        # ── CORREÇÃO: acumulador de deslocamento total do mundo ──
+        # acumulador de deslocamento total do mundo
         self.total_world_offset = 0
 
         # Posições (tuplas) das memórias já coletadas — carregadas do save ou vazias
@@ -47,7 +53,7 @@ class Level:
 
         self.parallax = ParallaxBackground(SCREEN_WIDTH, SCREEN_HEIGHT)
 
-        self.setup_level(LEVEL_MAP, save_data)
+        self.setup_level(ALL_LEVELS[self.phase_index], save_data)
 
     def setup_level(self, layout, save_data=None):
         self.tiles = pygame.sprite.Group()
@@ -56,6 +62,8 @@ class Level:
         self.goal = pygame.sprite.GroupSingle()
         self.objects = pygame.sprite.Group()
         self.ladders = pygame.sprite.Group()
+        self.keys = pygame.sprite.Group()
+        self.doors = pygame.sprite.GroupSingle()
         
         for row_index, row in enumerate(layout):
             for col_index, cell in enumerate(row):
@@ -103,6 +111,14 @@ class Level:
                     ladder = Ladder((x, y), TILE_SIZE)
                     self.ladders.add(ladder)
 
+                elif cell == 'K':
+                    key_sprite = Key((x, y), TILE_SIZE)
+                    self.keys.add(key_sprite)
+
+                elif cell == 'L':
+                    door_sprite = LockedDoor((x, y), TILE_SIZE)
+                    self.doors.add(door_sprite)
+
         # ── CORREÇÃO: Aplica estado salvo ao player (incluindo posição) ──
         if save_data:
             player = self.player.sprite
@@ -116,6 +132,7 @@ class Level:
 
         for enemy in self.enemies:
             enemy.player_ref = self.player.sprite
+            enemy.enemies_ref = self.enemies
 
     def scroll_x(self):
         player = self.player.sprite
@@ -178,7 +195,7 @@ class Level:
             for memory in collided_memories:
                 self.collected_positions.add(memory.map_pos)
 
-            save_game(player, self.collected_positions, self.total_world_offset)
+            save_game(player, self.collected_positions, self.total_world_offset, self.phase_index)
 
             if self.collect_sound:
                 self.collect_sound.play()
@@ -243,6 +260,31 @@ class Level:
                 arrow.kill()
                 hit[0].take_damage(1)
 
+    def check_key_and_door(self):
+        """Coleta chave e abre a porta se o jogador tiver a chave."""
+        player = self.player.sprite
+
+        # Coleta chave
+        collected_keys = pygame.sprite.spritecollide(player, self.keys, True)
+        if collected_keys:
+            self.has_key = True
+            if self.collect_sound:
+                self.collect_sound.play()
+
+        # Abre porta se tiver chave
+        door = self.doors.sprite
+        if door and not door.is_open and self.has_key:
+            if door.rect.colliderect(player.rect):
+                door.open()
+
+    def check_phase_exit(self):
+        """Retorna 'NEXT_PHASE' se o jogador entrar na porta aberta."""
+        door = self.doors.sprite
+        if door and door.is_open:
+            if door.rect.colliderect(self.player.sprite.rect):
+                return "NEXT_PHASE"
+        return None
+
     def check_death(self):
         """Morre se cair no buraco OU se a vida zerar."""
         if self.player.sprite.rect.top > SCREEN_HEIGHT or self.player.sprite.current_health <= 0:
@@ -250,8 +292,8 @@ class Level:
         return False
 
     def check_victory(self):
-        """Verifica se o jogador encostou no objetivo final."""
-        if pygame.sprite.spritecollide(self.player.sprite, self.goal, False):
+        """Verifica se o jogador encostou no objetivo final (apenas na fase 3)."""
+        if self.phase_index == 2 and pygame.sprite.spritecollide(self.player.sprite, self.goal, False):
             return True
         return False
 
@@ -285,15 +327,22 @@ class Level:
         self.enemies.update(self.world_shift) 
         self.enemies.draw(self.display_surface)
         
-        self.goal.update(self.world_shift) 
-        self.goal.draw(self.display_surface) 
-        
+        self.goal.update(self.world_shift)
+        self.goal.draw(self.display_surface)
+
+        self.keys.update(self.world_shift)
+        self.keys.draw(self.display_surface)
+
+        self.doors.update(self.world_shift)
+        self.doors.draw(self.display_surface)
+
         self.check_ladder()
         self.player.update()
         self.scroll_x()
         self.horizontal_movement_collision()
         self.vertical_movement_collision()
         self.check_collectibles()
+        self.check_key_and_door()
         self.check_damage()
 
         self._spawn_fire_arrow()
@@ -329,12 +378,16 @@ class Level:
         
         if self.check_death():
             return "GAMEOVER"
-            
+
+        phase_result = self.check_phase_exit()
+        if phase_result:
+            return phase_result
+
         if self.check_victory():
             memories_count = self.player.sprite.memories
             if memories_count >= GOOD_ENDING_THRESHOLD:
                 return "VICTORY_GOOD"
             else:
                 return "VICTORY_BAD"
-        
+
         return None

@@ -173,6 +173,7 @@ class Enemy(pygame.sprite.Sprite):
 
         # ── Referência ao jogador (injetada pelo Level) ────────────────
         self.player_ref = None     # Level faz: enemy.player_ref = player_sprite
+        self.enemies_ref = None    # Level faz: enemy.enemies_ref = enemies_group
 
         # ── Vida ───────────────────────────────────────────────────────
         self.health = 3
@@ -197,6 +198,20 @@ class Enemy(pygame.sprite.Sprite):
             self.kill()
             return True
         return False
+
+    def _separate_from_others(self):
+        """Empurra inimigos que se sobrepõem para evitar que ocupem o mesmo espaço."""
+        if self.enemies_ref is None:
+            return
+        for other in self.enemies_ref:
+            if other is self:
+                continue
+            if self.rect.colliderect(other.rect):
+                # Empurra na direção oposta ao outro inimigo
+                if self.rect.centerx <= other.rect.centerx:
+                    self.rect.x -= 2
+                else:
+                    self.rect.x += 2
 
     # ── helpers ─────────────────────────────────────────────────────────
     def _dist_to_player(self):
@@ -273,6 +288,8 @@ class Enemy(pygame.sprite.Sprite):
             self._patrol()
         elif self.state == 'chase':
             self._chase()
+
+        self._separate_from_others()
 
         # Avança animação
         self._frame_index = (self._frame_index + self._anim_speed) % len(self._frames_left)
@@ -370,6 +387,73 @@ class StaticObject(pygame.sprite.Sprite):
         self.rect.x += x_shift
 
 
+class Key(pygame.sprite.Sprite):
+    """Chave coletável. Caractere 'K' no mapa."""
+    def __init__(self, pos, size):
+        super().__init__()
+        self.map_pos = (pos[0], pos[1])
+
+        try:
+            img = pygame.image.load(KEY_IMAGE_PATH).convert_alpha()
+            img = pygame.transform.scale(img, (size // 2, size // 2))
+            self.image = img
+        except FileNotFoundError:
+            surf = pygame.Surface((size // 2, size // 2), pygame.SRCALPHA)
+            pygame.draw.polygon(surf, (255, 215, 0), [
+                (size // 4, 2), (size // 4 + 6, 8), (size // 4 + 6, size // 2 - 4),
+                (size // 4 - 6, size // 2 - 4), (size // 4 - 6, 8)
+            ])
+            self.image = surf
+
+        center_x = pos[0] + size // 2
+        center_y = pos[1] + size // 2
+        self.rect = self.image.get_rect(center=(center_x, center_y))
+
+    def update(self, x_shift):
+        self.rect.x += x_shift
+
+
+class LockedDoor(pygame.sprite.Sprite):
+    """Porta trancada. Caractere 'L' no mapa. Só abre quando o jogador tiver a chave."""
+    def __init__(self, pos, size):
+        super().__init__()
+        self.is_open = False
+        self._size = size
+
+        self._locked_image = self._make_locked(size)
+        self._open_image   = self._make_open(size)
+        self.image = self._locked_image
+        self.rect  = self.image.get_rect(topleft=pos)
+
+    def _make_locked(self, size):
+        try:
+            img = pygame.image.load(DOOR_IMAGE_PATH).convert_alpha()
+            return pygame.transform.scale(img, (size, size))
+        except FileNotFoundError:
+            surf = pygame.Surface((size, size))
+            surf.fill((139, 69, 19))
+            pygame.draw.rect(surf, (80, 40, 10), surf.get_rect(), 4)
+            pygame.draw.circle(surf, (255, 200, 0), (size // 2, size // 2 - 4), 8, 3)
+            pygame.draw.rect(surf, (255, 200, 0), (size // 2 - 6, size // 2 + 2, 12, 10))
+            return surf
+
+    def _make_open(self, size):
+        surf = pygame.Surface((size, size), pygame.SRCALPHA)
+        surf.fill((139, 69, 19, 80))
+        pygame.draw.rect(surf, (200, 150, 50, 120), surf.get_rect(), 4)
+        return surf
+
+    def open(self):
+        """Abre a porta visualmente."""
+        self.is_open = True
+        self.image = self._open_image
+
+    def update(self, x_shift):
+        self.rect.x += x_shift
+
+
+KEY_IMAGE_PATH   = 'assets/objetos/key.png'
+DOOR_IMAGE_PATH  = 'assets/objetos/door.png'
 LADDER_IMAGE_PATH = 'assets/objetos/Ladders/'
 
 class Ladder(pygame.sprite.Sprite):

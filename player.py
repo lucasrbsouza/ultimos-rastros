@@ -203,9 +203,12 @@ class Player(pygame.sprite.Sprite):
                 self.stage = 'guardiao_desperto'
                 self.max_health += 2
                 self.current_health = min(self.current_health + 2, self.max_health)
+            self.can_shoot = True
+            self.brado_ready = True
 
         elif m >= STAGE_THRESHOLDS['sussurro_mata']:
             self.stage = 'sussurro_mata'
+            self.can_shoot = True
             self.brado_ready = True
 
         elif m >= STAGE_THRESHOLDS['passos_invisiveis']:

@@ -42,6 +42,7 @@ class Game:
         # Rastreamento de sessão
         self._session_start = None
         self._session_deaths = 0
+        self._last_phase = 0
 
         self.current_state = None
         self.change_state("MENU")
@@ -103,13 +104,14 @@ class Game:
                 action = self.main_menu.handle_event(event)
                 if action == "CONTINUE":
                     save_data = load_game()
-                    self.level = Level(self.render_surface, save_data)
+                    phase = save_data.get('phase', 0) if save_data else 0
+                    self.level = Level(self.render_surface, save_data, phase_index=phase)
                     if self._session_start is None:
                         self._start_session()
                     self.change_state("GAMEPLAY")
                 elif action == "NEW_GAME":
                     delete_save()
-                    self.level = Level(self.render_surface)
+                    self.level = Level(self.render_surface, phase_index=0)
                     self._start_session()
                     self.change_state("GAMEPLAY")
                 elif action == "HISTORY":
@@ -130,7 +132,7 @@ class Game:
                 if action == "RETRY":
                     delete_save()
                     self._session_deaths += 1
-                    self.level = Level(self.render_surface)
+                    self.level = Level(self.render_surface, phase_index=self._last_phase)
                     self.change_state("GAMEPLAY")
                 elif action == "MENU":
                     self._session_start = None
@@ -186,8 +188,20 @@ class Game:
         elif self.current_state == "GAMEPLAY":
             game_status = self.level.run()
             if game_status == "GAMEOVER":
+                self._last_phase = self.level.phase_index
                 self.game_over_menu = GameOverMenu(self.render_surface)
                 self.change_state("GAMEOVER")
+            elif game_status == "NEXT_PHASE":
+                next_phase = self.level.phase_index + 1
+                # Preserva memórias e vida do jogador entre fases
+                old_player = self.level.player.sprite
+                carried_memories = old_player.memories
+                carried_health   = old_player.current_health
+                self.level = Level(self.render_surface, phase_index=next_phase)
+                new_player = self.level.player.sprite
+                new_player.memories       = carried_memories
+                new_player.current_health = carried_health
+                new_player.update_stage()
             elif game_status in ("VICTORY_GOOD", "VICTORY_BAD"):
                 elapsed = time.time() - self._session_start if self._session_start else 0
                 save_history(elapsed, self._session_deaths)

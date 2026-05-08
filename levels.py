@@ -4,6 +4,10 @@
 # E = inimigo              M = memória (coletável)
 # W = água (perigo)        1-3 = árvores  4-5 = arbustos
 # C = escada (escalável)   K = chave      L = porta trancada
+# N = Plent (avançado)     S = Skeleton   A = Orc_Warrior
+# B = Orc_Berserk          H = Orc_Shaman (boss final)
+# F = slime_normal         T = slime_fire  V = slime_spike  (patrulha simples)
+# R = coração (recupera 1 HP ao coletar)
 
 LEVEL_MAP = [
 #   0         1         2         3         4
@@ -13,11 +17,11 @@ LEVEL_MAP = [
     '    3                          1           ',  # 02 - decoração alta
     '   XXX      MMM     5         XXX          ',  # 03 - plataforma alta
     '           CXXX    XXXM                    ',  # 04 - plataforma média-alta
-    ' P 5 MMMM   XXXXX         M         2       ',  # 05 - plataforma média
+    ' P 5 MMMM   XXXXX    R    M         2       ',  # 05 - plataforma média
     ' XXX XXXXMMM                     CXXXX     ',  # 06 - suporte (C=topo da escada)
-    '               X    E   M E      C     KL ',  # 07 - chão do jogador (C=escada, X=prateleira, K=chave, L=porta)
-    'XXXXX  XXXXXX  XXXXXXXX  XXXXXXXXXXXXXXWWW ',  # 08 - chão principal
-    'DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD',  # 09 - terra
+    '        R   X    E   M E    F  C   R   N KL ',  # 07 - chão do jogador (E=fly, N=Plent boss, K=chave, L=porta)
+    'XXXXX  XXXXXXWWXXXXXXXX  XXXXXXXXXXXXXXXXXXXXXX ',  # 08 - chão principal (WW=água no Teste)
+    'DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD',  # 09 - terra
     'DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD',  # 10 - terra
     'DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD',  # 11 - terra
     'DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD',  # 12 - terra
@@ -36,8 +40,9 @@ LEVEL_MAP_2 = [
     '  C          XXXM                 C    M   XXX         ',  # 04
     ' P 5  M      C    E    5    M     C         C   M      ',  # 05
     ' XXX XXXX   XXXXX XXXX XXXXX  XXXXXX XXXX  XXXXXX     ',  # 06
-    '                                              E  E KL  ',  # 07
-    'XXXXXXX  XXXX   WWWW  XXXX  XXXXX   XXXX  XXXXXXXXWWWW',  # 08
+    '  E R E     N  M   S  S      R  A   B      H  G',  # 07 - E=fly N=Plent S=Skeleton A=Warrior B=Berserk H=Shaman(boss)
+    
+    'XXXXXXX  XXXX   WWWW  XXXX  XXXXX   XXXX  XXXXXXXXXXXX',  # 08
     'DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD',  # 09
     'DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD',  # 10
     'DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD',  # 11
@@ -57,7 +62,8 @@ LEVEL_MAP_3 = [
     '  C            XXXM XXX       C            M  C       XXXX    ',  # 04
     ' P 5  M       M  C    M   5    M   XXXXX  5 M       M  ',  # 05
     ' XXX XXXX XXXXXXXXXXXX XXXXX XXXXX XXXXX XXXXX XXXXXXXX    ',  # 06
-    '              E   E     E  M   E  E         E   E      E  G',  # 07
+    '     R   E   E     N  M   S  S R       A   B R    H  G',  # 07 - E=fly N=Plent S=Skeleton A=Warrior B=Berserk H=Shaman(boss)
+    
     'XXXXXXX  XXXX    WWWW   XXX  XXXX   XXXXX  XXXX  XXXXXXXXXX',  # 08
     'DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD',  # 09
     'DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD',  # 10

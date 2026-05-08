@@ -3,7 +3,6 @@ __pycache__/
 *.py[cod]
 *.so
 .Python
-*.pdf
 
 # Virtual Environment
 venv/
@@ -70,6 +69,5 @@ Desktop.ini
 *.temp
 *.bak
 *.backup
-CLAUDE.md
 save.json
 history.json

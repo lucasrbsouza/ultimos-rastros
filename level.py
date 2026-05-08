@@ -1,7 +1,7 @@
 import pygame
 from background import ParallaxBackground
 from settings import *
-from sprites import Tile, Memory, Enemy, Goal, Dirt, Water, StaticObject, FireArrow, Ladder, Key, LockedDoor
+from sprites import Tile, Memory, Enemy, Goal, Dirt, Water, StaticObject, FireArrow, CloudPoison, Ladder, Key, LockedDoor, Heart
 from player import Player
 from ui import HUD
 from levels import *
@@ -20,6 +20,7 @@ class Level:
         self.phase_index = phase_index
 
         self.tiles = pygame.sprite.Group()
+        self.water_tiles = pygame.sprite.Group()
         self.player = pygame.sprite.GroupSingle()
         self.memories = pygame.sprite.Group()
         self.enemies = pygame.sprite.Group()
@@ -28,8 +29,8 @@ class Level:
         self.ladders = pygame.sprite.Group()
         self.keys = pygame.sprite.Group()
         self.doors = pygame.sprite.GroupSingle()
-
-        self.has_key = False
+        self.enemy_projectiles = pygame.sprite.Group()
+        self.hearts = pygame.sprite.Group()
 
         self.hud = HUD(self.display_surface)
         self.world_shift = 0
@@ -57,6 +58,7 @@ class Level:
 
     def setup_level(self, layout, save_data=None):
         self.tiles = pygame.sprite.Group()
+        self.water_tiles = pygame.sprite.Group()
         self.memories = pygame.sprite.Group()
         self.enemies = pygame.sprite.Group()
         self.goal = pygame.sprite.GroupSingle()
@@ -64,7 +66,8 @@ class Level:
         self.ladders = pygame.sprite.Group()
         self.keys = pygame.sprite.Group()
         self.doors = pygame.sprite.GroupSingle()
-        
+        self.hearts = pygame.sprite.Group()
+
         for row_index, row in enumerate(layout):
             for col_index, cell in enumerate(row):
                 x = col_index * TILE_SIZE
@@ -82,8 +85,18 @@ class Level:
                     player_sprite = Player((x, y))
                     self.player.add(player_sprite)
                 
-                elif cell == 'E':
-                    enemy_sprite = Enemy((x, y), TILE_SIZE)
+                elif cell in ('E', 'F', 'T', 'V', 'N', 'S', 'A', 'B', 'H'):
+                    _type_map = {
+                        'E': 'fly',
+                        'F': 'slime_normal', 'T': 'slime_fire', 'V': 'slime_spike',
+                        'N': 'plent', 'S': 'skeleton',
+                        'A': 'orc_warrior', 'B': 'orc_berserk', 'H': 'orc_shaman',
+                    }
+                    etype = _type_map[cell]
+                    _simple = ('fly', 'slime_normal', 'slime_fire', 'slime_spike')
+                    esize = TILE_SIZE if etype in _simple else int(TILE_SIZE * 1.5)
+                    ey = y - (esize - TILE_SIZE)  # alinha bottom ao chão
+                    enemy_sprite = Enemy((x, ey), esize, etype)
                     self.enemies.add(enemy_sprite)
                 
                 elif cell == 'M':
@@ -98,7 +111,7 @@ class Level:
 
                 elif cell == 'W':
                     water_tile = Water((x, y), TILE_SIZE)
-                    self.tiles.add(water_tile)
+                    self.water_tiles.add(water_tile)
                 
                 elif cell in ['1', '2', '3']:
                     tree = StaticObject((x, y), 'Trees', f'{cell}.png', TILE_SIZE)
@@ -118,6 +131,10 @@ class Level:
                 elif cell == 'L':
                     door_sprite = LockedDoor((x, y), TILE_SIZE)
                     self.doors.add(door_sprite)
+
+                elif cell == 'R':
+                    heart_sprite = Heart((x, y), TILE_SIZE)
+                    self.hearts.add(heart_sprite)
 
         # ── CORREÇÃO: Aplica estado salvo ao player (incluindo posição) ──
         if save_data:
@@ -180,6 +197,37 @@ class Level:
                     self.player.sprite.rect.top = sprite.rect.bottom
                     self.player.sprite.direction.y = 0
 
+    def enemy_collision(self):
+        """Gravidade + colisão horizontal e vertical dos inimigos com tiles."""
+        for enemy in list(self.enemies):
+            if not enemy._has_gravity:
+                continue
+
+            # Colisão horizontal (empurra pra fora de tiles)
+            for tile in self.tiles.sprites():
+                if tile.rect.colliderect(enemy.rect):
+                    if enemy.direction == 1:
+                        enemy.rect.right = tile.rect.left
+                    else:
+                        enemy.rect.left  = tile.rect.right
+
+            # Gravidade + colisão vertical
+            enemy.apply_gravity()
+            enemy.on_ground = False
+            for tile in self.tiles.sprites():
+                if tile.rect.colliderect(enemy.rect):
+                    if enemy.velocity_y > 0:
+                        enemy.rect.bottom = tile.rect.top
+                        enemy.velocity_y  = 0
+                        enemy.on_ground   = True
+                    elif enemy.velocity_y < 0:
+                        enemy.rect.top   = tile.rect.bottom
+                        enemy.velocity_y = 0
+
+            # Mata se cair no buraco
+            if enemy.rect.top > SCREEN_HEIGHT:
+                enemy.kill()
+
     def check_ladder(self):
         player = self.player.sprite
         player.on_ladder = bool(pygame.sprite.spritecollide(player, self.ladders, False))
@@ -201,46 +249,54 @@ class Level:
             if self.collect_sound:
                 self.collect_sound.play()
 
-    def check_brado(self):
-        """Executa o brado do Curupira: dano em área e confunde inimigos."""
+    def check_stomp(self):
+        """Pular em cima do inimigo causa 1 de dano e faz o player quicar."""
         player = self.player.sprite
-        if not player.pending_brado:
+        if player.direction.y <= 0:
             return
-
-        player.pending_brado = False
-        brado_range = 200
-
-        affected = []
-        for enemy in self.enemies:
-            dist = pygame.math.Vector2(
-                enemy.rect.centerx - player.rect.centerx,
-                enemy.rect.centery - player.rect.centery
-            ).length()
-            if dist <= brado_range:
-                affected.append(enemy)
-
-        for enemy in affected:
-            enemy.confuse(affected)
-
-        self._brado_flash_timer = 20
+        for enemy in list(self.enemies):
+            if player.rect.colliderect(enemy.rect):
+                overlap = player.rect.bottom - enemy.rect.top
+                if 0 < overlap < 25 and player.rect.centery < enemy.rect.centery:
+                    enemy.take_damage(1)
+                    player.direction.y = -10
+                    player.score += 50
+                    return
 
     def check_damage(self):
         """Verifica colisão com inimigos e aplica dano."""
         player = self.player.sprite
 
-        if player.is_invincible:
+        if player.is_invincible or player.sombra_mata_active:
             return
 
+        now = pygame.time.get_ticks()
+
+        # Dano por contato (fly + stomp)
         hit_enemies = pygame.sprite.spritecollide(player, self.enemies, False)
         if hit_enemies:
             enemy = hit_enemies[0]
-            
-            if enemy.rect.centerx < player.rect.centerx:
-                knockback_direction = 1
-            else:
-                knockback_direction = -1
-            
+            if player.rect.bottom - enemy.rect.top < 25 and player.rect.centery < enemy.rect.centery:
+                return
+            if now - enemy._last_attack_time < enemy._attack_cooldown:
+                return
+            enemy._last_attack_time = now
+            knockback_direction = 1 if enemy.rect.centerx < player.rect.centerx else -1
             player.take_damage(1, knockback_direction)
+            return
+
+        # Dano por range: inimigos em estado de ataque (advanced AI)
+        for enemy in self.enemies:
+            if not enemy.is_attacking:
+                continue
+            dist = abs(enemy.rect.centerx - player.rect.centerx)
+            if dist > enemy.current_attack_range:
+                continue
+            if now - enemy._last_atk_time < enemy._atk_cd:
+                continue
+            knockback_direction = 1 if enemy.rect.centerx < player.rect.centerx else -1
+            player.take_damage(enemy.current_attack_damage, knockback_direction)
+            return
 
     def _spawn_fire_arrow(self):
         """Cria um projétil na posição do jogador se ele sinalizou o disparo."""
@@ -253,6 +309,30 @@ class Level:
             arrow = FireArrow(spawn_pos, player.facing_right)
             self.projectiles.add(arrow)
 
+    def _spawn_enemy_projectiles(self):
+        """Spawna projéteis de inimigos (ex: CloudPoison do Plent)."""
+        for enemy in list(self.enemies):
+            if not enemy.pending_ranged_proj:
+                continue
+            enemy.pending_ranged_proj = False
+            facing_right = (enemy.direction == 1)
+            offset_x = 40 if facing_right else -40
+            spawn_pos = (enemy.rect.centerx + offset_x, enemy.rect.centery)
+            cloud = CloudPoison(spawn_pos, facing_right)
+            self.enemy_projectiles.add(cloud)
+
+    def _check_enemy_projectiles(self):
+        """Aplica dano ao jogador atingido por projéteis de inimigos."""
+        player = self.player.sprite
+        if player.is_invincible or player.sombra_mata_active:
+            return
+        for proj in list(self.enemy_projectiles):
+            if proj.rect.colliderect(player.rect):
+                knockback = 1 if proj.velocity > 0 else -1
+                player.take_damage(CloudPoison.DAMAGE, knockback)
+                proj.kill()
+                return
+
     def check_projectiles(self):
         """Verifica colisão de projéteis com inimigos."""
         player = self.player.sprite
@@ -260,7 +340,11 @@ class Level:
             hit = pygame.sprite.spritecollide(arrow, self.enemies, False)
             if hit:
                 arrow.kill()
-                died = hit[0].take_damage(1)
+                damage = 1
+                if player.chama_ancestral_charges > 0:
+                    damage = 3
+                    player.chama_ancestral_charges -= 1
+                died = hit[0].take_damage(damage)
                 if died:
                     player.score += 100
 
@@ -268,18 +352,25 @@ class Level:
         """Coleta chave e abre a porta se o jogador tiver a chave."""
         player = self.player.sprite
 
-        # Coleta chave
         collected_keys = pygame.sprite.spritecollide(player, self.keys, True)
         if collected_keys:
-            self.has_key = True
+            player.has_key = True
             if self.collect_sound:
                 self.collect_sound.play()
 
-        # Abre porta se tiver chave
         door = self.doors.sprite
-        if door and not door.is_open and self.has_key:
+        if door and not door.is_open and player.has_key:
             if door.rect.colliderect(player.rect):
                 door.open()
+
+    def check_hearts(self):
+        """Coleta coração e recupera 1 HP (máximo max_health)."""
+        player = self.player.sprite
+        collected = pygame.sprite.spritecollide(player, self.hearts, True)
+        if collected:
+            player.current_health = min(player.current_health + 1, player.max_health)
+            if self.collect_sound:
+                self.collect_sound.play()
 
     def check_phase_exit(self):
         """Retorna 'NEXT_PHASE' se o jogador entrar na porta aberta."""
@@ -290,8 +381,11 @@ class Level:
         return None
 
     def check_death(self):
-        """Morre se cair no buraco OU se a vida zerar."""
-        if self.player.sprite.rect.top > SCREEN_HEIGHT or self.player.sprite.current_health <= 0:
+        """Morre se cair no buraco, tocar água OU se a vida zerar."""
+        player = self.player.sprite
+        if player.rect.top > SCREEN_HEIGHT or player.current_health <= 0:
+            return True
+        if pygame.sprite.spritecollide(player, self.water_tiles, False):
             return True
         return False
 
@@ -319,6 +413,9 @@ class Level:
         self.tiles.update(self.world_shift)
         self.draw_visible(self.tiles)
 
+        self.water_tiles.update(self.world_shift)
+        self.draw_visible(self.water_tiles)
+
         self.objects.update(self.world_shift)
         self.draw_visible(self.objects)
 
@@ -327,8 +424,12 @@ class Level:
         
         self.memories.update(self.world_shift)
         self.memories.draw(self.display_surface)
+
+        self.hearts.update(self.world_shift)
+        self.hearts.draw(self.display_surface)
         
-        self.enemies.update(self.world_shift) 
+        self.enemies.update(self.world_shift)
+        self.enemy_collision()
         self.enemies.draw(self.display_surface)
         
         self.goal.update(self.world_shift)
@@ -346,7 +447,9 @@ class Level:
         self.horizontal_movement_collision()
         self.vertical_movement_collision()
         self.check_collectibles()
+        self.check_hearts()
         self.check_key_and_door()
+        self.check_stomp()
         self.check_damage()
 
         self._spawn_fire_arrow()
@@ -354,7 +457,10 @@ class Level:
         self.check_projectiles()
         self.projectiles.draw(self.display_surface)
 
-        self.check_brado()
+        self._spawn_enemy_projectiles()
+        self.enemy_projectiles.update(self.world_shift)
+        self._check_enemy_projectiles()
+        self.enemy_projectiles.draw(self.display_surface)
 
         player = self.player.sprite
 
@@ -367,19 +473,21 @@ class Level:
 
         self.display_surface.blit(player.image, visual_rect)
 
-        # Flash do brado
-        if hasattr(self, '_brado_flash_timer') and self._brado_flash_timer > 0:
-            self._brado_flash_timer -= 1
+        # Flash Sombra da Mata
+        if player.sombra_mata_active:
             flash_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
-            alpha = int(60 * (self._brado_flash_timer / 20))
-            pygame.draw.circle(flash_surf, (100, 255, 150, alpha),
-                               player.rect.center, 200)
+            flash_surf.fill((80, 40, 120, 30))
             self.display_surface.blit(flash_surf, (0, 0))
 
-        self.hud.show_health(self.player.sprite.current_health, self.player.sprite.max_health)
-        self.hud.show_memories(self.player.sprite.memories, self.player.sprite.stage)
-        self.hud.show_brado_cooldown(self.player.sprite.get_brado_cooldown_ratio())
-        self.hud.show_score(self.player.sprite.score)
+        self.hud.show_health(player.current_health, player.max_health)
+        self.hud.show_memories(player.memories, player.stage, player.has_key)
+        self.hud.show_power_cooldown(
+            player.get_x_power_cooldown_ratio(),
+            player.get_active_power_name(),
+            player.sombra_mata_active or player.voz_floresta_active,
+        )
+        self.hud.show_score(player.score)
+        self.hud.show_hints(player)
         
         if self.check_death():
             return "GAMEOVER"

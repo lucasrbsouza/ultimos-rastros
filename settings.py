@@ -40,55 +40,99 @@ PLAYER_VISUAL_SCALE = 3.5
 
 GOOD_ENDING_THRESHOLD = 5  # memórias mínimas para o final bom
 
+PROLOG_TEXT = [
+    "Eu costumava ser o medo e o respeito desta floresta.",
+    "Mas não me lembro mais do meu próprio nome.",
+    "Preciso encontrar os rastros do que fui —",
+    "antes que desapareça para sempre.",
+]
+
 CUTSCENE_TEXTS = {
     0: [   # após fase 1 → antes da fase 2
-        "O Curupira segue os rastros pela mata...",
-        "A floresta sussurra memórias esquecidas.",
-        "Mas o perigo se aprofunda na selva.",
+        "Cada memória que encontro é como acender uma fogueira no escuro.",
+        "Lembro agora: meus pés sempre apontaram para trás,",
+        "confundindo quem me perseguia.",
+        "A floresta ainda guarda histórias. Eu preciso encontrá-las.",
     ],
     1: [   # após fase 2 → antes da fase 3
-        "As memórias voltam aos poucos...",
-        "O coração da floresta pulsa à frente.",
-        "É hora de enfrentar o que foi esquecido.",
+        "As memórias voltam em fragmentos.",
+        "Guerreiros que me temiam. Crianças que ouviam meu nome",
+        "e corriam para dentro de casa.",
+        "A floresta está me chamando de volta. Esta é minha última chance.",
     ],
 }
+
+VICTORY_GOOD_TEXT = [
+    "Fui lembrado.",
+    "A floresta voltou a viver e meu nome foi gravado nas lendas.",
+    "O Curupira não morreu — ele se tornou eterno.",
+    "Obrigado por não me esquecer.",
+]
+
+VICTORY_BAD_TEXT = [
+    "A floresta sobreviveu.",
+    "Mas faltaram histórias. Ainda existo — mas na sombra,",
+    "esquecido pela maioria.",
+    "Talvez, um dia, alguém me lembre inteiro.",
+]
 
 # Progressão de habilidades
 STAGE_THRESHOLDS = {
-    'rastro_confuso':    0,   # início — só anda e pula
-    'passos_invisiveis': 3,   # Fire Arrow desbloqueada
-    'sussurro_mata':     5,   # Poder especial (brado)
-    'guardiao_desperto': 7,   # Vida máxima aumenta
+    'rastro_confuso':    0,
+    'passos_invisiveis': 3,
+    'sussurro_mata':     5,
+    'guardiao_desperto': 7,
 }
 
-# Loja de poderes
+# Loja de poderes (7 poderes conforme GDD v2)
 SHOP_POWERS = [
+    {
+        'id':          'rastro_confuso',
+        'name':        'Rastro Confuso',
+        'description': 'Sempre ativo — pés apontam para trás',
+        'cost':        0,
+        'once':        True,
+    },
+    {
+        'id':          'sussurro_mata',
+        'name':        'Sussurro da Mata',
+        'description': 'Desbloqueia double-tap para correr',
+        'cost':        3,
+        'once':        True,
+    },
+    {
+        'id':          'flecha_fogo',
+        'name':        'Flecha de Fogo',
+        'description': 'Desbloqueia tecla Z (projétil)',
+        'cost':        5,
+        'once':        True,
+    },
     {
         'id':          'voz_floresta',
         'name':        'Voz da Floresta',
-        'description': 'Congela inimigos por 3s',
-        'cost':        3,
-        'once':        False,
+        'description': 'Tecla X — congela inimigos por 3s',
+        'cost':        8,
+        'once':        True,
     },
     {
         'id':          'chama_ancestral',
         'name':        'Chama Ancestral',
-        'description': 'Próxima flecha causa 3× dano',
-        'cost':        4,
-        'once':        False,
-    },
-    {
-        'id':          'sombra_mata',
-        'name':        'Sombra da Mata',
-        'description': 'Intangível por 3s',
-        'cost':        3,
+        'description': 'Tecla Z faz 3× dano (1 uso por compra)',
+        'cost':        10,
         'once':        False,
     },
     {
         'id':          'guardiao_vida',
         'name':        'Guardião Desperto',
-        'description': '+1 vida máxima (permanente)',
-        'cost':        5,
+        'description': '+2 HP permanente',
+        'cost':        12,
+        'once':        True,
+    },
+    {
+        'id':          'sombra_mata',
+        'name':        'Sombra da Mata',
+        'description': 'Tecla X — intangível por 3s (substitui Voz)',
+        'cost':        15,
         'once':        True,
     },
 ]

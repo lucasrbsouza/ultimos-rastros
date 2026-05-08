@@ -1,10 +1,112 @@
 import os
+import math
 import pygame
 
 WATER_IMAGE_PATH = 'assets/watersheet.png'
 TILE_IMAGE_PATH = 'assets/Tileset.png'
 MEMORY_IMAGE_PATH = 'assets/Rune.png'
 ENEMY_FRAMES_PATH = 'assets/enemies/fly/fly_{:02d}.png'
+
+# ── Enemy configs ────────────────────────────────────────────────────────────
+# ai: 'patrol' = bounce only  |  'advanced' = full state machine
+ENEMY_CONFIGS = {
+    # ── Simple patrol (fly + slimes) ─────────────────────────────────────────
+    'fly':          {'ai': 'patrol', 'health': 2, 'patrol_speed': 2, 'patrol_range': 120, 'folder': 'fly'},
+    'slime_normal': {'ai': 'patrol', 'health': 1, 'patrol_speed': 1, 'patrol_range': 100, 'folder': 'slime_normal'},
+    'slime_fire':   {'ai': 'patrol', 'health': 2, 'patrol_speed': 2, 'patrol_range': 100, 'folder': 'slime_fire'},
+    'slime_spike':  {'ai': 'patrol', 'health': 1, 'patrol_speed': 1, 'patrol_range': 100, 'folder': 'slime_spike'},
+    # ── Advanced AI ──────────────────────────────────────────────────────────
+    'plent': {
+        'ai': 'advanced', 'health': 6, 'patrol_speed': 1, 'chase_speed': 3,
+        'patrol_range': 150, 'detect_range': 260, 'lose_range': 400,
+        'melee_range': 90,  'melee_damage': 1,  'attack_cooldown': 1500,
+        'ranged_range': 220,'ranged_damage': 2,  'ranged_cooldown': 3500,
+        'folder': 'Plent',
+        'anims': {'walk':'Walk.png','idle':'Idle.png',
+                  'atk_m1':'Attack_1.png','atk_m2':'Attack_2.png','atk_m3':'Attack_3.png',
+                  'atk_r':'Cloud_posion.png','hurt':'Hurt.png','dead':'Dead.png'},
+    },
+    'skeleton': {
+        'ai': 'advanced', 'health': 5, 'patrol_speed': 2, 'chase_speed': 4,
+        'patrol_range': 130, 'detect_range': 280, 'lose_range': 420,
+        'melee_range': 85,  'melee_damage': 1,  'attack_cooldown': 1200,
+        'ranged_range': None,'ranged_damage': 0,
+        'folder': 'Skeleton',
+        'anims': {'walk':'Walk.png','run':'Run.png','idle':'Idle.png',
+                  'atk_m1':'Attack_1.png','atk_m2':'Attack_2.png','atk_m3':'Attack_3.png',
+                  'atk_r':'Special_attack.png','hurt':'Hurt.png','dead':'Dead.png'},
+    },
+    'orc_warrior': {
+        'ai': 'advanced', 'health': 4, 'patrol_speed': 2, 'chase_speed': 4,
+        'patrol_range': 100, 'detect_range': 250, 'lose_range': 380,
+        'melee_range': 90,  'melee_damage': 1,  'attack_cooldown': 1400,
+        'ranged_range': None,'ranged_damage': 0,
+        'folder': 'Orc_Warrior',
+        'anims': {'walk':'Walk.png','run':'Run.png','idle':'Idle.png',
+                  'atk_m1':'Attack_1.png','atk_m2':'Attack_2.png','atk_m3':'Attack_3.png',
+                  'atk_r':'Run+Attack.png','hurt':'Hurt.png','dead':'Dead.png'},
+    },
+    'orc_berserk': {
+        'ai': 'advanced', 'health': 5, 'patrol_speed': 3, 'chase_speed': 5,
+        'patrol_range': 120, 'detect_range': 270, 'lose_range': 400,
+        'melee_range': 90,  'melee_damage': 1,  'attack_cooldown': 1000,
+        'ranged_range': None,'ranged_damage': 0,
+        'folder': 'Orc_Berserk',
+        'anims': {'walk':'Walk.png','run':'Run.png','idle':'Idle.png',
+                  'atk_m1':'Attack_1.png','atk_m2':'Attack_2.png','atk_m3':'Attack_3.png',
+                  'atk_r':'Run+Attack.png','hurt':'Hurt.png','dead':'Dead.png'},
+    },
+    'orc_shaman': {
+        'ai': 'advanced', 'health': 8, 'patrol_speed': 2, 'chase_speed': 3,
+        'patrol_range': 160, 'detect_range': 320, 'lose_range': 480,
+        'melee_range': 80,  'melee_damage': 1,  'attack_cooldown': 1800,
+        'ranged_range': 250,'ranged_damage': 2,  'ranged_cooldown': 4000,
+        'folder': 'Orc_Shaman',
+        'anims': {'walk':'Walk.png','run':'Run.png','idle':'Idle.png',
+                  'atk_m1':'Attack_1.png','atk_m2':'Attack_2.png',
+                  'atk_r':'Magic_1.png','atk_r2':'Magic_2.png',
+                  'hurt':'Hurt.png','dead':'Dead.png'},
+    },
+}
+
+# ── Sprite loading helpers ───────────────────────────────────────────────────
+
+def _load_enemy_sheet(folder, sheet, size):
+    """Carrega spritesheet horizontal onde frame_w == frame_h (quadrado)."""
+    path = f'assets/enemies/{folder}/{sheet}'
+    try:
+        img = pygame.image.load(path).convert_alpha()
+        fh = img.get_height()
+        n  = img.get_width() // fh
+        frames = []
+        for i in range(n):
+            frame = img.subsurface((i * fh, 0, fh, fh))
+            frames.append(pygame.transform.scale(frame, (size, size)))
+        return frames
+    except Exception:
+        s = pygame.Surface((size, size)); s.fill((200, 50, 50)); return [s]
+
+def _load_folder_frames(folder, size):
+    """Carrega todos os PNGs de uma pasta (fly/slimes — frames individuais)."""
+    import glob
+    paths = sorted(glob.glob(f'assets/enemies/{folder}/*.png'))
+    frames = []
+    for p in paths:
+        try:
+            img = pygame.image.load(p).convert_alpha()
+            frames.append(pygame.transform.scale(img, (size, size)))
+        except Exception:
+            pass
+    if not frames:
+        s = pygame.Surface((size, size)); s.fill((200, 50, 50)); frames.append(s)
+    return frames
+
+def _make_lr(raw_frames):
+    """Retorna (left, right). Raw encara direita → right=original, left=flip."""
+    right = raw_frames
+    left  = [pygame.transform.flip(f, True, False) for f in raw_frames]
+    return left, right
+
 GOAL_IMAGE_PATH = 'assets/goal.png'
 
 class BaseTile(pygame.sprite.Sprite):
@@ -127,178 +229,317 @@ class Memory(pygame.sprite.Sprite):
 
 
 class Enemy(pygame.sprite.Sprite):
-    def __init__(self, pos, size):
+    """
+    ai='patrol'  → fly/slimes: bounca na patrol_range, sem detecção.
+    ai='advanced'→ Plent/Skeleton/Orcs: patrol→chase→atk_melee/atk_ranged→dying.
+    """
+
+    def __init__(self, pos, size, enemy_type='fly'):
         super().__init__()
+        cfg = ENEMY_CONFIGS.get(enemy_type, ENEMY_CONFIGS['fly'])
+        self._ai_type    = cfg['ai']
+        self._enemy_type = enemy_type
 
-        self._frames_left = []
-        i = 1
-        while True:
-            path = ENEMY_FRAMES_PATH.format(i)
-            if not os.path.exists(path):
-                break
-            img = pygame.image.load(path).convert_alpha()
-            img = pygame.transform.scale(img, (size, size))
-            self._frames_left.append(img)
-            i += 1
-        if not self._frames_left:
-            fallback = pygame.Surface((size, size))
-            fallback.fill((200, 50, 50))
-            self._frames_left.append(fallback)
+        # ── Carregar animações ─────────────────────────────────────────
+        # _anims: { nome: (frames_left, frames_right) }
+        self._anims = {}
+        if self._ai_type == 'patrol':
+            raw = _load_folder_frames(cfg['folder'], size)
+            # fly/slimes: frames encaram esquerda por padrão (fly_01 aponta esq)
+            # slimes também encaram esquerda → left=original, right=flip
+            self._anims['walk'] = (raw, [pygame.transform.flip(f, True, False) for f in raw])
+        else:
+            for anim_name, sheet_file in cfg['anims'].items():
+                raw = _load_enemy_sheet(cfg['folder'], sheet_file, size)
+                self._anims[anim_name] = _make_lr(raw)  # right=original(encar dir), left=flip
 
-        self._frames_right = [pygame.transform.flip(f, True, False) for f in self._frames_left]
+        self._anim       = 'walk'
+        self._frame_idx  = 0.0
+        self._anim_speed = 0.12
+        self.direction   = -1
 
-        self._frame_index = 0.0
-        self._anim_speed  = 0.1
-        self.image = self._frames_left[0]
+        self.image = self._get_frame()
         self.rect  = self.image.get_rect(topleft=pos)
-
-        # ── Origem (ponto de spawn — âncora da patrulha) ──────────────
         self.origin_x = pos[0]
 
-        # ── Configurações ──────────────────────────────────────────────
-        self.patrol_speed  = 2
-        self.chase_speed   = 4
-        self.patrol_range  = 120   # pixels para cada lado da origem
-        self.detect_range  = 300   # distância para detectar o jogador
-        self.lose_range    = 450   # distância para desistir da perseguição
-        self.attack_range  = 20    # distância para causar dano (toque)
+        # ── Stats ──────────────────────────────────────────────────────
+        self.patrol_speed  = cfg.get('patrol_speed', 2)
+        self.chase_speed   = cfg.get('chase_speed', 4)
+        self.patrol_range  = cfg.get('patrol_range', 120)
+        self.detect_range  = cfg.get('detect_range', 300)
+        self.lose_range    = cfg.get('lose_range', 450)
+        self._melee_range  = cfg.get('melee_range', 80)
+        self._ranged_range = cfg.get('ranged_range', None)
+        self._melee_dmg    = cfg.get('melee_damage', 1)
+        self._ranged_dmg   = cfg.get('ranged_damage', 2)
+        self._atk_cd       = cfg.get('attack_cooldown', 1500)
+        self._ratk_cd      = cfg.get('ranged_cooldown', 3500)
 
         # ── Estado ─────────────────────────────────────────────────────
-        # 'patrol' → 'chase' → volta p/ 'patrol' se perder o jogador
-        self.state     = 'patrol'
-        self.direction = -1        # 1 = direita, -1 = esquerda
-
-        # ── Patrulha ───────────────────────────────────────────────────
+        self.state           = 'patrol'
         self.patrol_distance = 0
-
-        # ── Referência ao jogador (injetada pelo Level) ────────────────
-        self.player_ref = None     # Level faz: enemy.player_ref = player_sprite
-        self.enemies_ref = None    # Level faz: enemy.enemies_ref = enemies_group
+        self.is_attacking    = False
+        self.current_attack_damage = 0
+        self.current_attack_range  = 0
+        self._last_atk_time  = 0
+        self._last_ratk_time = 0
 
         # ── Vida ───────────────────────────────────────────────────────
-        self.health = 3
-        self._hurt_time = 0          # ms do último dano recebido
-        self._hurt_duration = 300    # ms piscando após levar dano
+        self.health        = cfg.get('health', 3)
+        self._hurt_time    = 0
+        self._hurt_dur     = 300
+        self._dying        = False
 
-        # ── Confusão (brado) ───────────────────────────────────────────
+        # ── Compat ─────────────────────────────────────────────────────
+        self._last_attack_time = 0   # usado por level.py check_damage (contato)
+        self._attack_cooldown  = self._atk_cd
+
+        # ── Projétil ranged pendente ───────────────────────────────────
+        self.pending_ranged_proj = False
+
+        # ── Física ─────────────────────────────────────────────────────
+        self._has_gravity = (enemy_type != 'fly')
+        self.velocity_y   = 0.0
+        self.gravity      = 0.8
+        self.on_ground    = False
+
+        # ── Refs ───────────────────────────────────────────────────────
+        self.player_ref  = None
+        self.enemies_ref = None
         self._confused_until   = 0
         self._confused_targets = []
 
-    def confuse(self, all_affected):
-        """Entra em estado confuso: ataca outros inimigos próximos por 5 segundos."""
-        self.state = 'confused'
-        self._confused_until = pygame.time.get_ticks() + 5000
-        self._confused_targets = [e for e in all_affected if e is not self]
+    # ── Helpers ─────────────────────────────────────────────────────────
 
-    def take_damage(self, amount=1):
-        """Recebe dano e retorna True se morreu."""
-        self.health -= amount
-        self._hurt_time = pygame.time.get_ticks()
-        if self.health <= 0:
-            self.kill()
+    def _get_frame(self):
+        left_f, right_f = self._anims.get(self._anim, list(self._anims.values())[0])
+        frames = right_f if self.direction == 1 else left_f
+        return frames[int(self._frame_idx) % len(frames)]
+
+    def _advance_loop(self):
+        left_f, _ = self._anims.get(self._anim, list(self._anims.values())[0])
+        n = len(left_f)
+        self._frame_idx = (self._frame_idx + self._anim_speed) % n
+
+    def _advance_once(self):
+        """Avança animação uma vez. Retorna True ao completar o ciclo."""
+        left_f, _ = self._anims.get(self._anim, list(self._anims.values())[0])
+        n = len(left_f)
+        self._frame_idx += self._anim_speed
+        if self._frame_idx >= n:
+            self._frame_idx = float(n - 1)
             return True
         return False
 
+    def _set_anim(self, name):
+        if self._anim != name:
+            self._anim = name
+            self._frame_idx = 0.0
+
+    def _dist_to_player(self):
+        if self.player_ref is None:
+            return float('inf')
+        return abs(self.player_ref.rect.centerx - self.rect.centerx)
+
+    def _face_player(self):
+        if self.player_ref:
+            dx = self.player_ref.rect.centerx - self.rect.centerx
+            self.direction = 1 if dx > 0 else -1
+
+    # ── Público ─────────────────────────────────────────────────────────
+
+    def confuse(self, all_affected):
+        self.state = 'confused'
+        self._confused_until   = pygame.time.get_ticks() + 5000
+        self._confused_targets = [e for e in all_affected if e is not self]
+
+    def take_damage(self, amount=1):
+        self.health -= amount
+        self._hurt_time = pygame.time.get_ticks()
+        if self.health <= 0:
+            if self._ai_type == 'advanced' and 'dead' in self._anims:
+                self._dying = True
+                self._set_anim('dead')
+                self._frame_idx = 0.0
+                self.is_attacking = False
+            else:
+                self.kill()
+            return True
+        if self._ai_type == 'advanced' and 'hurt' in self._anims:
+            # Pisca — sem estado separado, só flash via _hurt_time
+            pass
+        return False
+
     def _separate_from_others(self):
-        """Empurra inimigos que se sobrepõem para evitar que ocupem o mesmo espaço."""
         if self.enemies_ref is None:
             return
         for other in self.enemies_ref:
             if other is self:
                 continue
             if self.rect.colliderect(other.rect):
-                # Empurra na direção oposta ao outro inimigo
                 if self.rect.centerx <= other.rect.centerx:
                     self.rect.x -= 2
                 else:
                     self.rect.x += 2
 
-    # ── helpers ─────────────────────────────────────────────────────────
-    def _dist_to_player(self):
-        if self.player_ref is None:
-            return float('inf')
-        return abs(self.player_ref.rect.centerx - self.rect.centerx)
+    # ── Lógica patrol (fly/slimes) ───────────────────────────────────────
 
-    def _face(self, direction):
-        self.direction = direction
-
-    # ── estados ─────────────────────────────────────────────────────────
-    def _patrol(self):
-        self.rect.x += self.patrol_speed * self.direction
+    def _update_patrol(self):
+        self.rect.x          += self.patrol_speed * self.direction
         self.patrol_distance += self.patrol_speed
-
         if self.patrol_distance >= self.patrol_range:
-            self._face(self.direction * -1)
+            self.direction       = -self.direction
             self.patrol_distance = 0
+        self._set_anim('walk')
+        self._advance_loop()
 
-        # Detectou o jogador → perseguir
-        if self._dist_to_player() <= self.detect_range:
-            self.state = 'chase'
-            self.patrol_distance = 0
+    # ── Lógica advanced (Plent/Skeleton/Orcs) ───────────────────────────
 
-    def _chase(self):
-        if self.player_ref is None:
-            self.state = 'patrol'
-            return
+    def _enter_atk_melee(self, now):
+        import random
+        melee_anims = [k for k in self._anims if k.startswith('atk_m')]
+        self._set_anim(random.choice(melee_anims) if melee_anims else 'atk_m1')
+        self.state                = 'atk_melee'
+        self.is_attacking         = True
+        self.current_attack_damage = self._melee_dmg
+        self.current_attack_range  = self._melee_range
+        self._last_atk_time        = now
 
+    def _enter_atk_ranged(self, now):
+        ranged_anims = [k for k in self._anims if k.startswith('atk_r')]
+        self._set_anim(ranged_anims[0] if ranged_anims else 'atk_r')
+        self.state           = 'atk_ranged'
+        self._last_ratk_time = now
+        if self._enemy_type == 'plent':
+            # dano via projétil CloudPoison — sem range check
+            self.is_attacking          = False
+            self.current_attack_damage = 0
+            self.current_attack_range  = 0
+            self.pending_ranged_proj   = True
+        else:
+            self.is_attacking          = True
+            self.current_attack_damage = self._ranged_dmg
+            self.current_attack_range  = self._ranged_range or self._melee_range
+
+    def _update_advanced(self, now):
         dist = self._dist_to_player()
 
-        # Perdeu o jogador → volta a patrulhar
-        if dist > self.lose_range:
-            self.state = 'patrol'
+        # ── Moribundo ─────────────────────────────────────────────────
+        if self._dying:
+            done = self._advance_once()
+            if done:
+                self.kill()
             return
 
-        # Move em direção ao jogador
-        dx = self.player_ref.rect.centerx - self.rect.centerx
-        self._face(1 if dx > 0 else -1)
+        # ── Animação hurt (flash) ──────────────────────────────────────
+        # Não troca estado, só pisca via _hurt_time
 
-        # Só se move se não está no alcance de ataque
-        if dist > self.attack_range:
-            self.rect.x += self.chase_speed * self.direction
+        # ── Ataque corpo-a-corpo ───────────────────────────────────────
+        if self.state == 'atk_melee':
+            self._face_player()
+            done = self._advance_once()
+            if done:
+                self.is_attacking = False
+                self.state = 'chase' if dist <= self.lose_range else 'patrol'
+            return
 
-    # ── update ──────────────────────────────────────────────────────────
-    def update(self, x_shift):
-        now = pygame.time.get_ticks()
+        # ── Ataque ranged ──────────────────────────────────────────────
+        if self.state == 'atk_ranged':
+            self._face_player()
+            done = self._advance_once()
+            if done:
+                self.is_attacking = False
+                self.state = 'chase' if dist <= self.lose_range else 'patrol'
+            return
 
-        # câmera
-        self.rect.x    += x_shift
-        self.origin_x  += x_shift   # ancora junto com o mundo
-
-        # Estado confuso: persegue outros inimigos, não o player
+        # ── Confuso ────────────────────────────────────────────────────
         if self.state == 'confused':
             if now >= self._confused_until:
                 self.state = 'patrol'
             else:
                 if self._confused_targets:
-                    target = self._confused_targets[0]
-                    if target.alive():
-                        dx = target.rect.centerx - self.rect.centerx
+                    t = self._confused_targets[0]
+                    if t.alive():
+                        dx = t.rect.centerx - self.rect.centerx
                         self.direction = 1 if dx > 0 else -1
                         self.rect.x += self.direction * self.chase_speed
-                self._frame_index = (self._frame_index + self._anim_speed) % len(self._frames_left)
-                frames = self._frames_right if self.direction == 1 else self._frames_left
-                self.image = frames[int(self._frame_index)]
-                if now - self._hurt_time < self._hurt_duration:
-                    self.image.set_alpha(80 if (now // 80) % 2 == 0 else 255)
-                else:
-                    self.image.set_alpha(255)
+                self._set_anim('walk')
+                self._advance_loop()
                 return
 
+        # ── Patrulha ───────────────────────────────────────────────────
         if self.state == 'patrol':
-            self._patrol()
-        elif self.state == 'chase':
-            self._chase()
+            self.rect.x          += self.patrol_speed * self.direction
+            self.patrol_distance += self.patrol_speed
+            if self.patrol_distance >= self.patrol_range:
+                self.direction       = -self.direction
+                self.patrol_distance = 0
+            self._set_anim('walk')
+            if dist <= self.detect_range:
+                self.state = 'chase'
+                self.patrol_distance = 0
+            return
 
+        # ── Perseguição ────────────────────────────────────────────────
+        if self.state == 'chase':
+            if dist > self.lose_range:
+                self.state = 'patrol'
+                return
+            self._face_player()
+            run_anim = 'run' if 'run' in self._anims else 'walk'
+            self._set_anim(run_anim)
+
+            # Decide atacar
+            can_melee  = (now - self._last_atk_time  >= self._atk_cd)
+            can_ranged = (self._ranged_range is not None and
+                          now - self._last_ratk_time >= self._ratk_cd)
+
+            if dist <= self._melee_range and can_melee:
+                self._enter_atk_melee(now)
+                return
+            if self._ranged_range and dist <= self._ranged_range and dist > self._melee_range and can_ranged:
+                self._enter_atk_ranged(now)
+                return
+
+            # Move em direção ao player
+            if dist > self._melee_range:
+                self.rect.x += self.chase_speed * self.direction
+
+        self._advance_loop()
         self._separate_from_others()
 
-        # Avança animação
-        self._frame_index = (self._frame_index + self._anim_speed) % len(self._frames_left)
-        frames = self._frames_right if self.direction == 1 else self._frames_left
-        self.image = frames[int(self._frame_index)]
+    def apply_gravity(self):
+        """Aplica gravidade verticalmente (chamado externamente por level.py)."""
+        if not self._has_gravity:
+            return
+        self.velocity_y += self.gravity
+        self.rect.y     += int(self.velocity_y)
 
-        # Pisca enquanto está machucado
+    # ── update ──────────────────────────────────────────────────────────
+
+    def update(self, x_shift):
         now = pygame.time.get_ticks()
-        if now - self._hurt_time < self._hurt_duration:
+
+        self.rect.x   += x_shift
+        self.origin_x += x_shift
+
+        # Voz da Floresta — congela
+        if self.player_ref and self.player_ref.voz_floresta_active:
+            self._set_anim('walk')
+            self._advance_loop()
+            self.image = self._get_frame()
+            self.image.set_alpha(180)
+            return
+
+        if self._ai_type == 'patrol':
+            self._update_patrol()
+        else:
+            self._update_advanced(now)
+
+        self.image = self._get_frame()
+
+        # Flash ao levar dano
+        if now - self._hurt_time < self._hurt_dur:
             self.image.set_alpha(80 if (now // 80) % 2 == 0 else 255)
         else:
             self.image.set_alpha(255)
@@ -354,6 +595,36 @@ class FireArrow(pygame.sprite.Sprite):
 
         # Remove se sair da tela (margem generosa)
         if self.rect.right < -100 or self.rect.left > 1380:
+            self.kill()
+
+
+class CloudPoison(pygame.sprite.Sprite):
+    """Projétil de nuvem venenosa do Plent — viaja horizontalmente."""
+    SPEED    = 5
+    SIZE     = 60
+    MAX_DIST = 350
+    DAMAGE   = 2
+
+    def __init__(self, pos, facing_right):
+        super().__init__()
+        raw = _load_enemy_sheet('Plent', 'Cloud_posion.png', self.SIZE)
+        if facing_right:
+            self.frames = [pygame.transform.flip(f, True, False) for f in raw]
+        else:
+            self.frames = raw
+        self.frame_index = 0.0
+        self.anim_speed  = 0.15
+        self.image       = self.frames[0]
+        self.rect        = self.image.get_rect(center=pos)
+        self.velocity    = self.SPEED if facing_right else -self.SPEED
+        self._traveled   = 0
+
+    def update(self, x_shift=0):
+        self.rect.x    += self.velocity + x_shift
+        self._traveled += abs(self.velocity)
+        self.frame_index = (self.frame_index + self.anim_speed) % len(self.frames)
+        self.image       = self.frames[int(self.frame_index)]
+        if self._traveled >= self.MAX_DIST or self.rect.right < -100 or self.rect.left > 1380:
             self.kill()
 
 
@@ -450,6 +721,41 @@ class LockedDoor(pygame.sprite.Sprite):
 
     def update(self, x_shift):
         self.rect.x += x_shift
+
+
+class Heart(pygame.sprite.Sprite):
+    """Coletável de vida. Caractere 'R' no mapa. Recupera 1 HP ao coletar."""
+    _SIZE = 36   # tamanho base do coração
+
+    def __init__(self, pos, size):
+        super().__init__()
+        self.map_pos = (pos[0], pos[1])
+        self._tick = 0
+
+        try:
+            img = pygame.image.load('assets/heart.png').convert_alpha()
+            self._base_img = pygame.transform.scale(img, (self._SIZE, self._SIZE))
+        except FileNotFoundError:
+            surf = pygame.Surface((self._SIZE, self._SIZE), pygame.SRCALPHA)
+            pygame.draw.circle(surf, (220, 30, 60), (self._SIZE // 2, self._SIZE // 2), self._SIZE // 2)
+            self._base_img = surf
+
+        self.image = self._base_img
+        cx = pos[0] + size // 2
+        cy = pos[1] + size // 2
+        self.rect = self.image.get_rect(center=(cx, cy))
+
+    def _pulse(self):
+        self._tick += 1
+        scale = 1.0 + 0.18 * math.sin(self._tick * 0.08)
+        new_size = max(4, int(self._SIZE * scale))
+        cx, cy = self.rect.center
+        self.image = pygame.transform.scale(self._base_img, (new_size, new_size))
+        self.rect  = self.image.get_rect(center=(cx, cy))
+
+    def update(self, x_shift):
+        self.rect.x += x_shift
+        self._pulse()
 
 
 KEY_IMAGE_PATH   = 'assets/objetos/key.png'

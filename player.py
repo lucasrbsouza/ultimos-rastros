@@ -75,12 +75,10 @@ class Player(pygame.sprite.Sprite):
 
         # Progressão de habilidades
         self.stage = 'rastro_confuso'
-        self.can_shoot = False
-        self.brado_ready = False
-        self._brado_cooldown = 8000
-        self._last_brado_time = 0
-        self.pending_brado = False
-        self.invincibility_duration = 1000 
+        self.can_shoot = False          # desbloqueado pela loja (Flecha de Fogo)
+        self.sussurro_comprado = False  # desbloqueado pela loja (Sussurro da Mata)
+        self.guardiao_vida_bought = False
+        self.invincibility_duration = 1000
         self.hurt_time = 0
 
         # 5. Poder de fogo
@@ -92,19 +90,24 @@ class Player(pygame.sprite.Sprite):
         self.is_attacking = False
 
         # 6. Poderes da loja
+        self.has_key = False
+
         # Voz da Floresta — congela inimigos
         self.voz_floresta_active = False
         self._voz_floresta_until = 0
+        self._last_voz_time = 0
 
-        # Chama Ancestral — próxima flecha faz 3× dano
-        self.chama_ancestral_charges = 0   # nº de disparos potencializados pendentes
+        # Chama Ancestral — próxima(s) flecha(s) fazem 3× dano
+        self.chama_ancestral_charges = 0
 
         # Sombra da Mata — intangível
         self.sombra_mata_active = False
         self._sombra_mata_until = 0
+        self._last_sombra_time = 0
 
-        # Guardião Desperto (loja) — compra única
-        self.guardiao_vida_bought = False
+        # Poderes ativos (X): lista de ids comprados, SHIFT cicla
+        self.active_powers = []       # ex: ['voz_floresta'], ['sombra_mata']
+        self.active_power_index = 0
 
         try:
             self.jump_sound = pygame.mixer.Sound(JUMP_SOUND_PATH)
@@ -203,34 +206,39 @@ class Player(pygame.sprite.Sprite):
         if keys[pygame.K_UP] or keys[pygame.K_w] or keys[pygame.K_SPACE]:
             self.jump_buffer_timer = self.jump_buffer_time  # ← guarda a intenção
     
-    def get_brado_cooldown_ratio(self):
-        """Retorna o quanto do cooldown já passou: 0.0 = recém usado, 1.0 = pronto."""
-        if not self.brado_ready:
+    def get_active_power(self):
+        """Retorna o id do poder X atualmente selecionado, ou None."""
+        if not self.active_powers:
             return None
-        elapsed = pygame.time.get_ticks() - self._last_brado_time
-        return min(elapsed / self._brado_cooldown, 1.0)
+        return self.active_powers[self.active_power_index % len(self.active_powers)]
+
+    def get_active_power_name(self):
+        """Nome exibível do poder X ativo."""
+        p = self.get_active_power()
+        names = {'voz_floresta': 'Voz da Floresta', 'sombra_mata': 'Sombra da Mata'}
+        return names.get(p, '')
+
+    def get_x_power_cooldown_ratio(self):
+        """0.0 = recém usado, 1.0 = pronto. None = sem poder."""
+        p = self.get_active_power()
+        if p is None:
+            return None
+        now = pygame.time.get_ticks()
+        if p == 'voz_floresta':
+            return min((now - self._last_voz_time) / 8000, 1.0)
+        if p == 'sombra_mata':
+            return min((now - self._last_sombra_time) / 10000, 1.0)
+        return None
 
     def update_stage(self):
-        """Reavalia o estágio com base nas memórias atuais."""
+        """Atualiza apenas o nome do estágio (para HUD). Não concede habilidades."""
         m = self.memories
-
         if m >= STAGE_THRESHOLDS['guardiao_desperto']:
-            if self.stage != 'guardiao_desperto':
-                self.stage = 'guardiao_desperto'
-                self.max_health += 2
-                self.current_health = min(self.current_health + 2, self.max_health)
-            self.can_shoot = True
-            self.brado_ready = True
-
+            self.stage = 'guardiao_desperto'
         elif m >= STAGE_THRESHOLDS['sussurro_mata']:
             self.stage = 'sussurro_mata'
-            self.can_shoot = True
-            self.brado_ready = True
-
         elif m >= STAGE_THRESHOLDS['passos_invisiveis']:
             self.stage = 'passos_invisiveis'
-            self.can_shoot = True
-
         else:
             self.stage = 'rastro_confuso'
 
@@ -246,24 +254,35 @@ class Player(pygame.sprite.Sprite):
                         self.is_attacking = True
                         self.frame_index = 0
 
-            # Brado do Curupira — tecla X
+            # Poder ativo — tecla X
             if event.key == pygame.K_x:
-                if self.brado_ready:
-                    if now - self._last_brado_time >= self._brado_cooldown:
-                        self._last_brado_time = now
-                        self.pending_brado = True
+                power = self.get_active_power()
+                if power == 'voz_floresta':
+                    if now - self._last_voz_time >= 8000:
+                        self._last_voz_time = now
+                        self.voz_floresta_active = True
+                        self._voz_floresta_until = now + 3000
+                elif power == 'sombra_mata':
+                    if now - self._last_sombra_time >= 10000:
+                        self._last_sombra_time = now
+                        self.sombra_mata_active = True
+                        self._sombra_mata_until = now + 3000
+
+            # SHIFT — cicla entre poderes ativos comprados
+            if event.key == pygame.K_LSHIFT or event.key == pygame.K_RSHIFT:
+                if self.active_powers:
+                    self.active_power_index = (self.active_power_index + 1) % len(self.active_powers)
 
             if event.key in (pygame.K_RIGHT, pygame.K_d, pygame.K_LEFT, pygame.K_a):
-                
-                # Mesma direção pressionada dentro da janela? → É double-tap
                 mesma_direita = (event.key in (pygame.K_RIGHT, pygame.K_d) and
                                 self._last_tap_key in (pygame.K_RIGHT, pygame.K_d))
                 mesma_esquerda = (event.key in (pygame.K_LEFT, pygame.K_a) and
                                 self._last_tap_key in (pygame.K_LEFT, pygame.K_a))
 
                 if (mesma_direita or mesma_esquerda) and (now - self._last_tap_time <= self._double_tap_window):
-                    self.is_running = True
-                    self.run_release_timer = self.run_release_buffer  # renova ao ativar
+                    if self.sussurro_comprado:
+                        self.is_running = True
+                        self.run_release_timer = self.run_release_buffer
 
                 self._last_tap_time = now
                 self._last_tap_key = event.key
@@ -271,7 +290,7 @@ class Player(pygame.sprite.Sprite):
         # Soltou a tecla — inicia o buffer antes de cancelar
         if event.type == pygame.KEYUP:
             if event.key in (pygame.K_RIGHT, pygame.K_d, pygame.K_LEFT, pygame.K_a):
-                self.run_release_timer = self.run_release_buffer  # não cancela ainda
+                self.run_release_timer = self.run_release_buffer
 
     def get_status(self):
         if self.is_invincible:
@@ -398,5 +417,10 @@ class Player(pygame.sprite.Sprite):
         self.update_jump_timers()
         self.update_run()
         self.get_status()
-        self.animate() 
+        self.animate()
         self.invincibility_timer()
+        now = pygame.time.get_ticks()
+        if self.voz_floresta_active and now >= self._voz_floresta_until:
+            self.voz_floresta_active = False
+        if self.sombra_mata_active and now >= self._sombra_mata_until:
+            self.sombra_mata_active = False

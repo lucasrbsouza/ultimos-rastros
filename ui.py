@@ -50,8 +50,8 @@ class HUD:
         # Frente verde (vida atual)
         pygame.draw.rect(self.display_surface, (50, 200, 80), (20, 20, current * bar_width, bar_height))
         
-    def show_memories(self, amount, stage):
-        """Desenha o contador de memórias e o estágio atual."""
+    def show_memories(self, amount, stage, has_key=False):
+        """Desenha o contador de memórias, estágio atual e indicador de chave."""
         text_surf = self.font.render(f'Memórias: {amount}', True, COLOR_TEXT)
         self.display_surface.blit(text_surf, text_surf.get_rect(topleft=(20, 50)))
 
@@ -65,13 +65,17 @@ class HUD:
         stage_surf = self.font.render(nome, True, cor)
         self.display_surface.blit(stage_surf, stage_surf.get_rect(topleft=(20, 78)))
 
+        if has_key:
+            key_surf = pygame.font.Font(None, 28).render('[CHAVE]', True, (255, 215, 0))
+            self.display_surface.blit(key_surf, key_surf.get_rect(topright=(SCREEN_WIDTH - 20, 50)))
+
     def show_score(self, score):
         """Exibe a pontuação no canto superior direito."""
         text_surf = self.font.render(f'{score}', True, (255, 230, 80))
         self.display_surface.blit(text_surf, text_surf.get_rect(topright=(SCREEN_WIDTH - 20, 20)))
 
-    def show_brado_cooldown(self, ratio):
-        """Exibe o indicador de cooldown do Brado. ratio None = não exibe."""
+    def show_power_cooldown(self, ratio, power_name, power_active=False):
+        """Exibe cooldown do poder X ativo. ratio None = sem poder."""
         if ratio is None:
             return
 
@@ -85,7 +89,13 @@ class HUD:
         pygame.draw.rect(self.display_surface, (40, 40, 40),
                          (bar_x, bar_y, bar_w, bar_h), border_radius=4)
 
-        fill_color = (100, 255, 150) if is_ready else (200, 130, 40)
+        if power_active:
+            fill_color = (120, 80, 200)
+        elif is_ready:
+            fill_color = (100, 255, 150)
+        else:
+            fill_color = (200, 130, 40)
+
         if fill_w > 0:
             pygame.draw.rect(self.display_surface, fill_color,
                              (bar_x, bar_y, fill_w, bar_h), border_radius=4)
@@ -93,7 +103,31 @@ class HUD:
         pygame.draw.rect(self.display_surface, (80, 80, 80),
                          (bar_x, bar_y, bar_w, bar_h), 1, border_radius=4)
 
-        label = 'PRONTO  [X]' if is_ready else 'Brado...'
-        label_color = (100, 255, 150) if is_ready else (180, 120, 40)
+        short_name = power_name.split()[-1] if power_name else 'X'
+        if power_active:
+            label = f'ATIVO [{short_name}]'
+            label_color = (160, 100, 255)
+        elif is_ready:
+            label = f'PRONTO [X]'
+            label_color = (100, 255, 150)
+        else:
+            label = f'CD: {short_name}'
+            label_color = (180, 120, 40)
+
         label_surf = pygame.font.Font(None, 22).render(label, True, label_color)
         self.display_surface.blit(label_surf, (bar_x + bar_w + 8, bar_y - 2))
+
+    def show_hints(self, player):
+        """Dicas de tecla no rodapé central — só mostra poderes desbloqueados."""
+        hints = ['[Q] Poderes']
+        if player.can_shoot:
+            hints.append('[Z] Atacar')
+        if player.active_powers:
+            hints.append('[X] Poder')
+        if len(player.active_powers) > 1:
+            hints.append('[SHIFT] Trocar')
+
+        text = '   '.join(hints)
+        hint_surf = pygame.font.Font(None, 24).render(text, True, (180, 180, 180))
+        rect = hint_surf.get_rect(midbottom=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 8))
+        self.display_surface.blit(hint_surf, rect)

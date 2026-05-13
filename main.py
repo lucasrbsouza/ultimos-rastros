@@ -1,6 +1,18 @@
 import pygame
 import sys
+import os
 import time
+
+# Fix asset paths when running as PyInstaller executable
+if getattr(sys, 'frozen', False):
+    _BASE_DIR = sys._MEIPASS
+    _SAVE_DIR = os.path.dirname(sys.executable)
+    os.chdir(_BASE_DIR)
+else:
+    _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    _SAVE_DIR = _BASE_DIR
+    os.chdir(_BASE_DIR)
+
 from settings import *
 from menu import MainMenu, GameOverMenu, VictoryMenu, CreditsMenu, HistoryMenu
 from level import Level

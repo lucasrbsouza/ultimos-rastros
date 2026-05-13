@@ -1,9 +1,15 @@
 import json
 import os
+import sys
 import datetime
 
-SAVE_PATH = 'save.json'
-HISTORY_PATH = 'history.json'
+def _save_dir():
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+SAVE_PATH = os.path.join(_save_dir(), 'save.json')
+HISTORY_PATH = os.path.join(_save_dir(), 'history.json')
 
 def save_game(player, collected_positions, world_offset=0, phase_index=0):
     """

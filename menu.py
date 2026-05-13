@@ -1180,17 +1180,14 @@ class HistoryMenu:
 
 class HelpScreen:
     CONTROLS = [
-        ("A / D",            "Mover esquerda / direita"),
-        ("A A  ou  D D",     "Duplo toque para correr"),
-        ("Espaço",           "Pular"),
-        ("Espaço (no ar)",   "Pulo duplo"),
-        ("Z",                "Atacar corpo a corpo"),
-        ("K",                "Disparar Fire Arrow"),
-        ("X",                "Usar poder ativo"),
-        ("SHIFT",            "Trocar poder ativo"),
-        ("Q",                "Ver poderes disponíveis"),
-        ("ESC",              "Pausar / voltar ao menu"),
-        ("F1",               "Abrir / fechar esta tela"),
+        ("A / D",        "Mover esquerda / direita"),
+        ("A A  ou  D D", "Duplo toque para correr"),
+        ("W / Espaço",   "Pular"),
+        ("Z",            "Disparar Fire Arrow"),
+        ("X",            "Usar poder ativo"),
+        ("Q",            "Ver poderes disponíveis"),
+        ("ESC",          "Pausar / voltar ao menu"),
+        ("F1 / H",       "Abrir / fechar esta tela"),
     ]
 
     def __init__(self, screen):

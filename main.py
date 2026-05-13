@@ -14,7 +14,7 @@ else:
     os.chdir(_BASE_DIR)
 
 from settings import *
-from menu import MainMenu, GameOverMenu, VictoryMenu, CreditsMenu, HistoryMenu
+from menu import MainMenu, GameOverMenu, VictoryMenu, CreditsMenu, HistoryMenu, HelpScreen
 from level import Level
 from save_system import delete_save, load_game, has_save, save_history
 from cutscene import Cutscene
@@ -86,6 +86,8 @@ class Game:
         self._pending_victory = None
         self._pending_score = 0
         self._phase_entry_snapshot = None  # estado do jogador ao entrar em cada fase
+        self._help_screen = None
+        self._pre_help_state = None
 
         # Dev mode
         self._dev_overlay_visible = True
@@ -205,11 +207,27 @@ class Game:
                     elif event.key == pygame.K_q:
                         self.shop = ShopScreen(self.render_surface, self.level.player.sprite)
                         self.change_state("SHOP")
+                    elif event.key == pygame.K_h or (event.key == pygame.K_F1 and not DEV_MODE):
+                        self._frozen_frame = self.render_surface.copy()
+                        self._help_screen = HelpScreen(self.render_surface)
+                        self._pre_help_state = "GAMEPLAY"
+                        self.current_state = "HELP"
                 self.level.player.sprite.handle_event(event)
 
+            elif self.current_state == "HELP":
+                action = self._help_screen.handle_event(event)
+                if action == "CLOSE":
+                    self.current_state = self._pre_help_state
+
             elif self.current_state == "BOSS_FIGHT":
-                if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                    self.change_state("MENU")
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        self.change_state("MENU")
+                    elif event.key == pygame.K_h or (event.key == pygame.K_F1 and not DEV_MODE):
+                        self._frozen_frame = self.render_surface.copy()
+                        self._help_screen = HelpScreen(self.render_surface)
+                        self._pre_help_state = "BOSS_FIGHT"
+                        self.current_state = "HELP"
                 self.boss_arena.player.sprite.handle_event(event)
 
             elif self.current_state == "SHOP":
@@ -476,6 +494,8 @@ class Game:
                 self.cutscene.update()
         elif self.current_state == "SHOP":
             self.shop.update()
+        elif self.current_state == "HELP":
+            self._help_screen.update()
 
     def draw(self):
         if self.current_state == "MENU":
@@ -593,6 +613,10 @@ class Game:
             self.history_menu.draw()
         elif self.current_state in ("CUTSCENE", "CUTSCENE_PROLOG"):
             self.cutscene.draw()
+
+        elif self.current_state == "HELP":
+            self.render_surface.blit(self._frozen_frame, (0, 0))
+            self._help_screen.draw()
 
         if DEV_MODE:
             self._dev_draw_overlay()

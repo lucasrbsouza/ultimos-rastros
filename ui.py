@@ -126,6 +126,7 @@ class HUD:
             hints.append('[X] Poder')
         if len(player.active_powers) > 1:
             hints.append('[SHIFT] Trocar')
+        hints.append('[H] Ajuda')
 
         text = '   '.join(hints)
         hint_surf = pygame.font.Font(None, 24).render(text, True, (180, 180, 180))

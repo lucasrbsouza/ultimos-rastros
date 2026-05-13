@@ -1176,3 +1176,112 @@ class HistoryMenu:
             self.btn_prev.draw(self.screen)
         if self.page < self.total_pages - 1:
             self.btn_next.draw(self.screen)
+
+
+class HelpScreen:
+    CONTROLS = [
+        ("A / D",            "Mover esquerda / direita"),
+        ("A A  ou  D D",     "Duplo toque para correr"),
+        ("Espaço",           "Pular"),
+        ("Espaço (no ar)",   "Pulo duplo"),
+        ("Z",                "Atacar corpo a corpo"),
+        ("K",                "Disparar Fire Arrow"),
+        ("X",                "Usar poder ativo"),
+        ("SHIFT",            "Trocar poder ativo"),
+        ("Q",                "Ver poderes disponíveis"),
+        ("ESC",              "Pausar / voltar ao menu"),
+        ("F1",               "Abrir / fechar esta tela"),
+    ]
+
+    def __init__(self, screen):
+        self.screen = screen
+        self.clock_ticks = 0
+        self.font_title   = pygame.font.Font(None, 64)
+        self.font_key     = pygame.font.Font(None, 30)
+        self.font_action  = pygame.font.Font(None, 30)
+        self.font_hint    = pygame.font.Font(None, 24)
+        self._glow_line   = self._build_glow_line(560, (80, 180, 110))
+        self.fade_alpha   = 0
+
+    def _build_glow_line(self, width, color):
+        surf = pygame.Surface((width, 4), pygame.SRCALPHA)
+        r, g, b = color
+        for i in range(width):
+            fade = math.sin((i / width) * math.pi) ** 1.5
+            surf.set_at((i, 1), (r, g, b, int(fade * 180)))
+            surf.set_at((i, 2), (r, g, b, int(fade * 70)))
+        return surf
+
+    def handle_event(self, event):
+        if event.type == pygame.KEYDOWN:
+            if event.key in (pygame.K_F1, pygame.K_ESCAPE, pygame.K_h):
+                return "CLOSE"
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            return "CLOSE"
+        return None
+
+    def update(self):
+        self.clock_ticks += 1
+        self.fade_alpha = min(255, self.fade_alpha + 18)
+
+    def draw(self):
+        # overlay escuro semi-transparente sobre o que já foi desenhado
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        self.screen.blit(overlay, (0, 0))
+
+        panel_w, panel_h = 700, 500
+        panel_x = SCREEN_WIDTH  // 2 - panel_w // 2
+        panel_y = SCREEN_HEIGHT // 2 - panel_h // 2
+
+        # painel
+        panel = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+        panel.fill((8, 22, 14, 230))
+        self.screen.blit(panel, (panel_x, panel_y))
+        pulse = 0.5 + 0.5 * math.sin(self.clock_ticks * 0.04)
+        pygame.draw.rect(self.screen,
+                         (80, 180, 110, int(100 + 80 * pulse)),
+                         (panel_x, panel_y, panel_w, panel_h), 2, border_radius=8)
+
+        # título
+        title_color = (int(160 + 50 * pulse), int(225 + 30 * pulse), int(165 + 40 * pulse))
+        title_surf = self.font_title.render("Como Jogar", True, title_color)
+        title_surf.set_alpha(self.fade_alpha)
+        self.screen.blit(title_surf, title_surf.get_rect(center=(SCREEN_WIDTH // 2, panel_y + 42)))
+
+        # linha decorativa
+        lx = SCREEN_WIDTH // 2 - self._glow_line.get_width() // 2
+        self.screen.blit(self._glow_line, (lx, panel_y + 70))
+
+        # controles em duas colunas (tecla | ação)
+        col_key    = panel_x + 40
+        col_action = panel_x + 260
+        row_h      = 36
+        start_y    = panel_y + 88
+
+        for i, (key, action) in enumerate(self.CONTROLS):
+            y = start_y + i * row_h
+            alpha = self.fade_alpha
+
+            # fundo alternado
+            if i % 2 == 0:
+                row_bg = pygame.Surface((panel_w - 60, row_h - 4), pygame.SRCALPHA)
+                row_bg.fill((255, 255, 255, 10))
+                self.screen.blit(row_bg, (panel_x + 30, y - 2))
+
+            key_surf = self.font_key.render(key, True, (140, 230, 160))
+            key_surf.set_alpha(alpha)
+            self.screen.blit(key_surf, (col_key, y))
+
+            action_surf = self.font_action.render(action, True, (220, 255, 230))
+            action_surf.set_alpha(alpha)
+            self.screen.blit(action_surf, (col_action, y))
+
+        # dica de fechar
+        hint_surf = self.font_hint.render(
+            "Pressione F1, H ou clique para fechar", True, (120, 160, 130)
+        )
+        hint_surf.set_alpha(int(self.fade_alpha * (0.6 + 0.4 * pulse)))
+        self.screen.blit(hint_surf, hint_surf.get_rect(
+            center=(SCREEN_WIDTH // 2, panel_y + panel_h - 22)
+        ))

@@ -85,6 +85,7 @@ class Game:
         self._carried_shop = {}
         self._pending_victory = None
         self._pending_score = 0
+        self._phase_entry_snapshot = None  # estado do jogador ao entrar em cada fase
 
         # Dev mode
         self._dev_overlay_visible = True
@@ -224,9 +225,22 @@ class Game:
                     self._current_phase_index = self._last_phase
                     self.level = Level(self.render_surface, phase_index=self._last_phase)
                     player = self.level.player.sprite
-                    player.memories = self._last_memories
-                    player.score    = self._last_score
-                    self._restore_shop_flags(player)
+                    if self._last_phase > 0 and self._phase_entry_snapshot:
+                        # Restaura o estado exato de quando o jogador entrou nesta fase
+                        snap = self._phase_entry_snapshot
+                        player.memories       = snap['memories']
+                        player.current_health = snap['health']
+                        player.score          = snap['score']
+                        s = snap['shop']
+                        player.can_shoot                 = s.get('can_shoot', False)
+                        player.sussurro_comprado         = s.get('sussurro_comprado', False)
+                        player.active_powers             = list(s.get('active_powers', []))
+                        player.active_power_index        = s.get('active_power_index', 0)
+                        player.chama_ancestral_charges   = s.get('chama_ancestral_charges', 0)
+                        player.guardiao_vida_bought      = s.get('guardiao_vida_bought', False)
+                        player.max_health                = s.get('max_health', 5)
+                        player.current_health            = min(player.current_health, player.max_health)
+                    # Fase 0: Level já inicia o jogador do zero, sem restaurar nada
                     player.update_stage()
                     self.change_state("GAMEPLAY")
                 elif action == "MENU":
@@ -317,6 +331,14 @@ class Game:
 
     def _load_next_phase(self):
         self._current_phase_index = self._next_phase_index
+        # Salva snapshot do estado ao entrar nesta fase (usado no retry de gameover)
+        self._phase_entry_snapshot = {
+            'memories': self._carried_memories,
+            'health':   self._carried_health,
+            'score':    self._carried_score,
+            'shop':     {k: (list(v) if isinstance(v, list) else v)
+                         for k, v in self._carried_shop.items()},
+        }
         self.level = Level(self.render_surface, phase_index=self._next_phase_index)
         player = self.level.player.sprite
         player.memories       = self._carried_memories

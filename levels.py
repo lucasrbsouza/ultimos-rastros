@@ -54,8 +54,8 @@ LEVEL_MAP_2 = [
     '                                                                      4E       M 15                                                                            ',  # 03
     '                                                                    XXXXXX   CDXXXXX       M                          25 E      M        N                             126R',  # 04
     '                           26 M R                          2  T M                        XXXXX                     66VXXXXX   XXXXXXXXXXXXXXWXXX      VE              XXXXXX  T   M          N   L',  # 05
-    '                          XXXXXX                          CXXXXXX                     D                     M    XXXXX          DDDDDDDDDDDDDDDDD   XXXXXX     M             XXXXXX      XXXXXXXXXX',  # 06
-    'P16 45E 14  M T 35     ME        2V456 15  34 NM 52 F     C                                          F  T XXXXX                 DDDDDDD            DDDDDDKRXXXXXXXXXDDD      DDDDDD  X  RDDDDDDDDDD                               ',  # 07 - E=fly N=Plent S=Skeleton A=Warrior B=Berserk H=Shaman(boss)
+    '                          XXXXXX                          CXXXXXX                     D                     M    XXXXX          DDDDDDDDDDDDDDDDD   XXXXXX    KM             XXXXXX      XXXXXXXXXX',  # 06
+    'P16 45E 14  M T 35     ME        2V456 15  34 NM 52 F     C                                          F  T XXXXX                 DDDDDDD            DDDDDD RXXXXXXXXXDDD      DDDDDD  X  RDDDDDDDDDD                               ',  # 07 - E=fly N=Plent S=Skeleton A=Warrior B=Berserk H=Shaman(boss)
     'XXXXXXXXXXXXXXXXXXX  XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX                                         XXXXXXXXX                     DDDDDDD               DDDDDD  DDDDDDDD        DDDDDD  D  D    '
     'XXXXXXXXXXXXXXXXXX   XXXXXXXXXXXXXXXXXXDDDDDDDDDDDDDDDDD                                       X                               DDDDDDD                             ',  # 08
     'DDDDDDDDDDDDDDDDDD   DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD                                      D                               DDDDDDD                              ',  # 09

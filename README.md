@@ -95,6 +95,7 @@ python main.py
 | `A` / `D` | Mover esquerda / direita |
 | `Espaço` | Pular (pressione duas vezes para pular duplo) |
 | `A` `A` ou `D` `D` | Duplo toque para correr |
+| `Q` | Abre Poderes disponiveis |
 | `X` | Paraliza |
 | `Z` | Disparar Fire Arrow |
 | `ESC` | Pausar / Menu |

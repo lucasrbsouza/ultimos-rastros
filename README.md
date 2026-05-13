@@ -2,11 +2,11 @@
 
 <div align="center">
   <a href="https://github.com/lucasrbsouza/ultimos-rastros/releases/latest/download/UltimosRastros-Windows.exe">
-    <img src="https://img.shields.io/badge/⬇ Download-Windows-.exe-0078d4?style=for-the-badge&logo=windows" />
+    <img src="https://img.shields.io/badge/Download-Windows%20.exe-0078d4?style=for-the-badge&logo=windows&logoColor=white" />
   </a>
   &nbsp;
   <a href="https://github.com/lucasrbsouza/ultimos-rastros/releases/latest/download/UltimosRastros-Linux">
-    <img src="https://img.shields.io/badge/⬇ Download-Linux-binary-E95420?style=for-the-badge&logo=linux&logoColor=white" />
+    <img src="https://img.shields.io/badge/Download-Linux%20Binary-E95420?style=for-the-badge&logo=linux&logoColor=white" />
   </a>
   &nbsp;
   <a href="https://github.com/lucasrbsouza/ultimos-rastros/releases/latest">

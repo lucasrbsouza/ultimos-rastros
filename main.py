@@ -15,6 +15,20 @@ GAME_BGM_PATH = 'assets/sounds/game_bgm.mp3'
 GAMEOVER_SOUND_PATH = 'assets/sounds/gameover.mp3'
 VICTORY_SOUND_PATH = 'assets/sounds/victory.mp3'
 
+PHASE_BGM_PATHS = [
+    'assets/sounds/music_background/Fase_01.mp3',
+    'assets/sounds/music_background/fase_02.mp3',
+    'assets/sounds/music_background/fase-03.mp3',
+]
+
+BOSS_BGM_PATHS = {
+    'plent':       'assets/sounds/boss_music_background/boss1.mp3',
+    'skeleton':    'assets/sounds/boss_music_background/boss2.mp3',
+    'orc_warrior': 'assets/sounds/boss_music_background/boss3.mp3',
+    'orc_berserk': 'assets/sounds/boss_music_background/boss3.mp3',
+    'orc_shaman':  'assets/sounds/boss_music_background/boss3.mp3',
+}
+
 class Game:
     def __init__(self):
         pygame.init()
@@ -52,12 +66,17 @@ class Game:
         self.cutscene = None
         self.shop = None
         self._next_phase_index = 0
+        self._current_phase_index = 0
         self._carried_memories = 0
         self._carried_health = 5
         self._carried_score = 0
         self._carried_shop = {}
         self._pending_victory = None
         self._pending_score = 0
+
+        # Dev mode
+        self._dev_overlay_visible = True
+        self._dev_font = None  # inicializado lazy após pygame.font.init
 
         # Boss fight
         self.boss_arena      = None
@@ -87,8 +106,13 @@ class Game:
         if new_state == "MENU":
             self.main_menu = MainMenu(self.render_surface)
 
+        # Voltando da shop: só despausa, não reinicia
+        if new_state == "GAMEPLAY" and old_state == "SHOP":
+            pygame.mixer.music.unpause()
+            return
+
         # Mantém a música ao entrar nos Créditos / Histórico / Cutscene / Shop
-        if new_state in ("CREDITS", "HISTORY", "CUTSCENE", "CUTSCENE_PROLOG", "SHOP", "BOSS_FIGHT"):
+        if new_state in ("CREDITS", "HISTORY", "CUTSCENE", "CUTSCENE_PROLOG", "SHOP"):
             pygame.mixer.music.unpause()
             return
 
@@ -99,7 +123,9 @@ class Game:
                 pygame.mixer.music.load(MENU_BGM_PATH)
                 pygame.mixer.music.play(-1)
             elif new_state == "GAMEPLAY":
-                pygame.mixer.music.load(GAME_BGM_PATH)
+                idx = self._current_phase_index
+                phase_path = PHASE_BGM_PATHS[idx] if idx < len(PHASE_BGM_PATHS) else GAME_BGM_PATH
+                pygame.mixer.music.load(phase_path)
                 pygame.mixer.music.play(-1)
             elif new_state == "GAMEOVER":
                 pygame.mixer.music.load(GAMEOVER_SOUND_PATH)
@@ -120,17 +146,32 @@ class Game:
             if event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
                 self._toggle_fullscreen()
 
+            # Dev mode shortcuts
+            if DEV_MODE and event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_F1:
+                    self._dev_load_phase(0)
+                elif event.key == pygame.K_F2:
+                    self._dev_load_phase(1)
+                elif event.key == pygame.K_F3:
+                    self._dev_load_phase(2)
+                elif event.key == pygame.K_F5:
+                    self._dev_load_phase(self._current_phase_index)
+                elif event.key == pygame.K_F9:
+                    self._dev_overlay_visible = not self._dev_overlay_visible
+
             if self.current_state == "MENU":
                 action = self.main_menu.handle_event(event)
                 if action == "CONTINUE":
                     save_data = load_game()
                     phase = save_data.get('phase', 0) if save_data else 0
+                    self._current_phase_index = phase
                     self.level = Level(self.render_surface, save_data, phase_index=phase)
                     if self._session_start is None:
                         self._start_session()
                     self.change_state("GAMEPLAY")
                 elif action == "NEW_GAME":
                     delete_save()
+                    self._current_phase_index = 0
                     self.level = Level(self.render_surface, phase_index=0)
                     self._start_session()
                     self.cutscene = Cutscene(self.render_surface, PROLOG_TEXT)
@@ -168,6 +209,7 @@ class Game:
                 if action == "RETRY":
                     delete_save()
                     self._session_deaths += 1
+                    self._current_phase_index = self._last_phase
                     self.level = Level(self.render_surface, phase_index=self._last_phase)
                     player = self.level.player.sprite
                     player.memories = self._last_memories
@@ -253,8 +295,16 @@ class Game:
         self._pending_victory = after_victory
         self.boss_arena = BossArena(self.render_surface, boss_queue[0], player_data)
         self.change_state("BOSS_FIGHT")
+        boss_bgm = BOSS_BGM_PATHS.get(boss_queue[0])
+        if boss_bgm:
+            try:
+                pygame.mixer.music.load(boss_bgm)
+                pygame.mixer.music.play(-1)
+            except pygame.error:
+                print(f"Aviso: Música de boss não encontrada: {boss_bgm}")
 
     def _load_next_phase(self):
+        self._current_phase_index = self._next_phase_index
         self.level = Level(self.render_surface, phase_index=self._next_phase_index)
         player = self.level.player.sprite
         player.memories       = self._carried_memories
@@ -273,6 +323,92 @@ class Game:
         self.victory_menu = VictoryMenu(self.render_surface, ending=ending_type,
                                         score=self._pending_score)
         self.change_state("VICTORY")
+
+    # ── Dev mode helpers ──────────────────────────────────────────────────────
+
+    def _dev_load_phase(self, phase_idx):
+        from levels import ALL_LEVELS
+        if phase_idx >= len(ALL_LEVELS):
+            return
+        self._current_phase_index = phase_idx
+        self._next_phase_index    = phase_idx
+        self._last_phase          = phase_idx
+        self._carried_memories    = 0
+        self._carried_health      = 5
+        self._carried_score       = 0
+        self._carried_shop        = {}
+        self.boss_arena           = None
+        self._pending_victory     = None
+        if self._session_start is None:
+            self._start_session()
+        self.level = Level(self.render_surface, phase_index=phase_idx)
+        self.change_state("GAMEPLAY")
+
+    def _dev_skip_cutscene(self):
+        if self.current_state == "CUTSCENE_PROLOG":
+            self.change_state("GAMEPLAY")
+        else:
+            if self._pending_victory:
+                pending = self._pending_victory
+                self._pending_victory = None
+                self._finish_victory(pending)
+            else:
+                self._load_next_phase()
+
+    def _dev_draw_overlay(self):
+        if self._dev_font is None:
+            self._dev_font = pygame.font.SysFont('monospace', 13, bold=True)
+
+        font = self._dev_font
+        lines = ['[DEV MODE]', f'Fase: {self._current_phase_index + 1}/3  |  Estado: {self.current_state}']
+
+        if self.current_state == "GAMEPLAY" and self.level and self.level.player.sprite:
+            p = self.level.player.sprite
+            tx = int(p.rect.x / TILE_SIZE)
+            ty = int(p.rect.y / TILE_SIZE)
+            lines.append(f'Player px:   ({p.rect.x}, {p.rect.y})')
+            lines.append(f'Player tile: ({tx}, {ty})')
+        elif self.current_state == "BOSS_FIGHT" and self.boss_arena:
+            p = self.boss_arena.player.sprite
+            lines.append(f'Player px: ({p.rect.x}, {p.rect.y})')
+
+        fps = self.clock.get_fps()
+        lines.append(f'FPS: {fps:.0f}')
+        lines.append('')
+        lines.append('F1/F2/F3 → fase 1/2/3')
+        lines.append('F5       → reload fase')
+        lines.append('F9       → ocultar overlay')
+
+        if not self._dev_overlay_visible:
+            badge = font.render('[DEV]', True, (255, 220, 0))
+            bg = pygame.Surface((badge.get_width() + 8, badge.get_height() + 4), pygame.SRCALPHA)
+            bg.fill((0, 0, 0, 160))
+            self.render_surface.blit(bg, (SCREEN_WIDTH - bg.get_width() - 4, 4))
+            self.render_surface.blit(badge, (SCREEN_WIDTH - badge.get_width() - 8, 6))
+            return
+
+        pad = 8
+        line_h = 17
+        panel_w = 220
+        panel_h = len(lines) * line_h + pad * 2
+        panel = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+        panel.fill((0, 0, 0, 170))
+
+        ox = SCREEN_WIDTH - panel_w - 6
+        oy = 6
+        self.render_surface.blit(panel, (ox, oy))
+
+        for i, line in enumerate(lines):
+            if i == 0:
+                color = (255, 220, 0)
+            elif line.startswith('F'):
+                color = (160, 220, 255)
+            else:
+                color = (210, 255, 210)
+            surf = font.render(line, True, color)
+            self.render_surface.blit(surf, (ox + pad, oy + pad + i * line_h))
+
+    # ─────────────────────────────────────────────────────────────────────────
 
     def _toggle_fullscreen(self):
         """Alterna entre tela cheia e janela redimensionável (F11)."""
@@ -300,7 +436,10 @@ class Game:
         elif self.current_state == "HISTORY":
             self.history_menu.update()
         elif self.current_state in ("CUTSCENE", "CUTSCENE_PROLOG"):
-            self.cutscene.update()
+            if DEV_MODE:
+                self._dev_skip_cutscene()
+            else:
+                self.cutscene.update()
         elif self.current_state == "SHOP":
             self.shop.update()
 
@@ -334,7 +473,11 @@ class Game:
                 if boss_queue:
                     self._start_boss_fight(boss_queue, pdata, after_victory=None)
                 else:
-                    if next_phase - 1 in CUTSCENE_TEXTS:
+                    from levels import ALL_LEVELS
+                    if next_phase >= len(ALL_LEVELS):
+                        self._finish_victory("VICTORY_GOOD")
+                        self.change_state("VICTORY")
+                    elif next_phase - 1 in CUTSCENE_TEXTS:
                         self.cutscene = Cutscene(self.render_surface, CUTSCENE_TEXTS[next_phase - 1])
                         self.change_state("CUTSCENE")
                     else:
@@ -416,6 +559,9 @@ class Game:
             self.history_menu.draw()
         elif self.current_state in ("CUTSCENE", "CUTSCENE_PROLOG"):
             self.cutscene.draw()
+
+        if DEV_MODE:
+            self._dev_draw_overlay()
 
         # Escala a surface lógica para a janela real (pygame.SCALED faz isso automaticamente
         # ao fazer blit da render_surface para a window)

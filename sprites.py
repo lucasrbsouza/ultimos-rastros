@@ -2,7 +2,7 @@ import os
 import math
 import pygame
 
-WATER_IMAGE_PATH = 'assets/watersheet.png'
+WATER_IMAGE_PATH = 'assets/spritsheet-water.png'
 TILE_IMAGE_PATH = 'assets/Tileset.png'
 MEMORY_IMAGE_PATH = 'assets/Rune.png'
 ENEMY_FRAMES_PATH = 'assets/enemies/fly/fly_{:02d}.png'
@@ -162,12 +162,45 @@ class Dirt(BaseTile):
         # Se preferir um bloco de terra mais escuro, tente coluna=1, linha=1
         super().__init__(pos, size, coluna=1, linha=2)
 
-class Water(BaseTile):
-    """O bloco de preenchimento (Terra). Usado pelo caractere 'D'."""
+class Water(pygame.sprite.Sprite):
+    _cache = {}
+
     def __init__(self, pos, size):
-        # Coordenadas do bloco de terra genérica no seu desenho (Coluna 1, Linha 2)
-        # Se preferir um bloco de terra mais escuro, tente coluna=1, linha=1
-        super().__init__(pos, size, coluna=10, linha=5)
+        super().__init__()
+        if size not in Water._cache:
+            Water._cache[size] = self._load_frames(size)
+        self.frames = Water._cache[size]
+        self.frame_index = 0.0
+        self.animation_speed = 0.08
+        self.image = self.frames[0]
+        self.rect = self.image.get_rect(topleft=pos)
+
+    # região com conteúdo real dentro de cada frame 256×1024
+    _CROP = (32, 444, 220, 108)
+
+    def _load_frames(self, size):
+        try:
+            sheet = pygame.image.load(WATER_IMAGE_PATH).convert_alpha()
+            num_frames = 6
+            frame_w = sheet.get_width() // num_frames
+            cx, cy, cw, ch = Water._CROP
+            frames = []
+            for i in range(num_frames):
+                frame = sheet.subsurface((i * frame_w + cx, cy, cw, ch))
+                frames.append(pygame.transform.scale(frame, (size, size)))
+            return frames
+        except Exception as e:
+            print(f"Aviso: spritesheet de água não encontrado: {e}")
+            s = pygame.Surface((size, size), pygame.SRCALPHA)
+            s.fill((30, 100, 200, 180))
+            return [s]
+
+    def update(self, x_shift):
+        self.rect.x += x_shift
+        self.frame_index += self.animation_speed
+        if self.frame_index >= len(self.frames):
+            self.frame_index = 0.0
+        self.image = self.frames[int(self.frame_index)]
 
 class Memory(pygame.sprite.Sprite):
     def __init__(self, pos, size):

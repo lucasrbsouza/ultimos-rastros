@@ -14,7 +14,7 @@ ARENA_MAP = [
     '                        ',  # 04
     '                        ',  # 05
     '                        ',  # 06
-    '  P                 *   ',  # 07  P=jogador col2, *=boss col20
+    '  P R      *          R ',  # 07  P=jogador col2, *=boss col20
     'XXXXXXXXXXXXXXXXXXXXXXXX',  # 08
     'DDDDDDDDDDDDDDDDDDDDDDDD',  # 09
     'DDDDDDDDDDDDDDDDDDDDDDDD',  # 10
@@ -183,6 +183,8 @@ class BossArena:
                     return
 
     def check_damage(self):
+        if DEV_MODE:
+            return
         player = self.player.sprite
         if player.is_invincible or player.sombra_mata_active:
             return
@@ -354,6 +356,6 @@ class BossArena:
         # ── Condições de fim ──────────────────────────────────────────
         if not self.enemies:
             return "WIN"
-        if player.current_health <= 0 or player.rect.top > SCREEN_HEIGHT:
+        if not DEV_MODE and (player.current_health <= 0 or player.rect.top > SCREEN_HEIGHT):
             return "LOSE"
         return None

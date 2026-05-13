@@ -1,4 +1,8 @@
+import sys
 from levels import *
+
+DEV_MODE = '--dev' in sys.argv
+
 # Configurações de Tela
 TILE_SIZE = 60
 SCREEN_WIDTH = 1280

@@ -265,6 +265,8 @@ class Level:
 
     def check_damage(self):
         """Verifica colisão com inimigos e aplica dano."""
+        if DEV_MODE:
+            return
         player = self.player.sprite
 
         if player.is_invincible or player.sombra_mata_active:
@@ -382,6 +384,8 @@ class Level:
 
     def check_death(self):
         """Morre se cair no buraco, tocar água OU se a vida zerar."""
+        if DEV_MODE:
+            return False
         player = self.player.sprite
         if player.rect.top > SCREEN_HEIGHT or player.current_health <= 0:
             return True

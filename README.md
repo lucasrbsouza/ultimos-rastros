@@ -10,6 +10,17 @@
     <img src="https://img.shields.io/badge/Pygame-2.6-green?logo=python&logoColor=white" />
     <img src="https://img.shields.io/badge/Plataforma-Windows%20%7C%20Linux-lightgrey" />
     <img src="https://img.shields.io/badge/Licença-MIT-yellow" />
+    <img src="https://img.shields.io/github/v/release/lucasrbsouza/ultimos-rastros?label=release&color=brightgreen" />
+  </p>
+
+  <p>
+    <a href="https://github.com/lucasrbsouza/ultimos-rastros/releases/latest/download/UltimosRastros-Windows.exe">
+      <img src="https://img.shields.io/badge/⬇ Download-Windows-.exe-0078d4?style=for-the-badge&logo=windows" />
+    </a>
+    &nbsp;
+    <a href="https://github.com/lucasrbsouza/ultimos-rastros/releases/latest/download/UltimosRastros-Linux">
+      <img src="https://img.shields.io/badge/⬇ Download-Linux-binary-E95420?style=for-the-badge&logo=linux&logoColor=white" />
+    </a>
   </p>
 </div>
 

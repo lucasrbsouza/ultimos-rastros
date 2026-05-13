@@ -1,4 +1,5 @@
-## Releases e Builds
+## Releases e Builds 
+clique em um dos links abaixo pra baixar a versão compativel ou abrir as ultimas release
 
 <div align="center">
   <a href="https://github.com/lucasrbsouza/ultimos-rastros/releases/latest/download/UltimosRastros-Windows.exe">

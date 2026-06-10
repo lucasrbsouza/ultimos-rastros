@@ -4,6 +4,7 @@ from sprites import Tile, Dirt, Enemy, FireArrow, CloudPoison, ENEMY_CONFIGS
 from player import Player
 from ui import HUD
 from background import ParallaxBackground
+from config import CONFIG, apply_god_powers
 
 # Arena: 24 tiles wide (1440px), sem plataformas nem buracos
 ARENA_MAP = [
@@ -102,6 +103,9 @@ class BossArena:
             enemy.player_ref  = player
             enemy.enemies_ref = self.enemies
 
+        if CONFIG.god_mode:
+            apply_god_powers(player)
+
     # ── Física / Colisão (igual ao Level) ────────────────────────────────
 
     def scroll_x(self):
@@ -183,7 +187,7 @@ class BossArena:
                     return
 
     def check_damage(self):
-        if DEV_MODE:
+        if DEV_MODE or CONFIG.god_mode:
             return
         player = self.player.sprite
         if player.is_invincible or player.sombra_mata_active:
@@ -356,6 +360,6 @@ class BossArena:
         # ── Condições de fim ──────────────────────────────────────────
         if not self.enemies:
             return "WIN"
-        if not DEV_MODE and (player.current_health <= 0 or player.rect.top > SCREEN_HEIGHT):
+        if not DEV_MODE and not CONFIG.god_mode and (player.current_health <= 0 or player.rect.top > SCREEN_HEIGHT):
             return "LOSE"
         return None

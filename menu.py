@@ -2,6 +2,7 @@ import pygame
 from settings import *
 from ui import Button
 from save_system import has_save, load_history
+from config import CONFIG
 import math, random
 
 BG_MENU_PATH = 'assets/backgrounds_statics/bg_menu.png'
@@ -38,33 +39,35 @@ class MainMenu:
         self.has_save = has_save()
 
         if self.has_save:
-            n_btns = 5
+            n_btns = 6
             total_h = btn_h + (n_btns - 1) * btn_gap
             # centraliza o bloco na metade inferior da tela com margem de 20px do fundo
             base_y = min(
                 SCREEN_HEIGHT // 2 + 20,
                 SCREEN_HEIGHT - total_h - 20
             )
-            self.btn_continue = Button(cx, base_y,                 btn_w, btn_h, "Continuar",  self.font_button)
-            self.btn_new_game = Button(cx, base_y + btn_gap,       btn_w, btn_h, "Novo Jogo",  self.font_button)
-            self.btn_history  = Button(cx, base_y + btn_gap * 2,   btn_w, btn_h, "Histórico",  self.font_button)
-            self.btn_credits  = Button(cx, base_y + btn_gap * 3,   btn_w, btn_h, "Créditos",   self.font_button)
-            self.btn_quit     = Button(cx, base_y + btn_gap * 4,   btn_w, btn_h, "Sair",       self.font_button)
-            self._btn_offsets = [160, 160, 160, 160, 160]
-            self._btn_delays  = [0, 0, 0, 0, 0]
+            self.btn_continue = Button(cx, base_y,                 btn_w, btn_h, "Continuar",     self.font_button)
+            self.btn_new_game = Button(cx, base_y + btn_gap,       btn_w, btn_h, "Novo Jogo",     self.font_button)
+            self.btn_settings = Button(cx, base_y + btn_gap * 2,   btn_w, btn_h, "Configurações", self.font_button)
+            self.btn_history  = Button(cx, base_y + btn_gap * 3,   btn_w, btn_h, "Histórico",     self.font_button)
+            self.btn_credits  = Button(cx, base_y + btn_gap * 4,   btn_w, btn_h, "Créditos",      self.font_button)
+            self.btn_quit     = Button(cx, base_y + btn_gap * 5,   btn_w, btn_h, "Sair",          self.font_button)
+            self._btn_offsets = [160, 160, 160, 160, 160, 160]
+            self._btn_delays  = [0, 0, 0, 0, 0, 0]
         else:
-            n_btns = 4
+            n_btns = 5
             total_h = btn_h + (n_btns - 1) * btn_gap
             base_y = min(
                 SCREEN_HEIGHT // 2 + 20,
                 SCREEN_HEIGHT - total_h - 20
             )
-            self.btn_play    = Button(cx, base_y,               btn_w, btn_h, "Jogar",     self.font_button)
-            self.btn_history = Button(cx, base_y + btn_gap,     btn_w, btn_h, "Histórico", self.font_button)
-            self.btn_credits = Button(cx, base_y + btn_gap * 2, btn_w, btn_h, "Créditos",  self.font_button)
-            self.btn_quit    = Button(cx, base_y + btn_gap * 3, btn_w, btn_h, "Sair",      self.font_button)
-            self._btn_offsets = [160, 160, 160, 160]
-            self._btn_delays  = [0, 0, 0, 0]
+            self.btn_play     = Button(cx, base_y,               btn_w, btn_h, "Jogar",         self.font_button)
+            self.btn_settings = Button(cx, base_y + btn_gap,     btn_w, btn_h, "Configurações", self.font_button)
+            self.btn_history  = Button(cx, base_y + btn_gap * 2, btn_w, btn_h, "Histórico",     self.font_button)
+            self.btn_credits  = Button(cx, base_y + btn_gap * 3, btn_w, btn_h, "Créditos",      self.font_button)
+            self.btn_quit     = Button(cx, base_y + btn_gap * 4, btn_w, btn_h, "Sair",          self.font_button)
+            self._btn_offsets = [160, 160, 160, 160, 160]
+            self._btn_delays  = [0, 0, 0, 0, 0]
 
         # --- Partículas (vaga-lumes verdes subindo) ---
         self.particles = [self._new_particle(random.randint(0, SCREEN_HEIGHT))
@@ -216,6 +219,7 @@ class MainMenu:
             self.btn_new_game.update(mouse_pos)
         else:
             self.btn_play.update(mouse_pos)
+        self.btn_settings.update(mouse_pos)
         self.btn_history.update(mouse_pos)
         self.btn_credits.update(mouse_pos)
         self.btn_quit.update(mouse_pos)
@@ -233,6 +237,8 @@ class MainMenu:
         else:
             if self.btn_play.is_clicked(event):
                 return "NEW_GAME"
+        if self.btn_settings.is_clicked(event):
+            return "SETTINGS"
         if self.btn_history.is_clicked(event):
             return "HISTORY"
         if self.btn_credits.is_clicked(event):
@@ -276,9 +282,9 @@ class MainMenu:
 
         # ── botões deslizando ──
         if self.has_save:
-            buttons = [self.btn_continue, self.btn_new_game, self.btn_history, self.btn_credits, self.btn_quit]
+            buttons = [self.btn_continue, self.btn_new_game, self.btn_settings, self.btn_history, self.btn_credits, self.btn_quit]
         else:
-            buttons = [self.btn_play, self.btn_history, self.btn_credits, self.btn_quit]
+            buttons = [self.btn_play, self.btn_settings, self.btn_history, self.btn_credits, self.btn_quit]
 
         for i, btn in enumerate(buttons):
             off   = self._btn_offsets[i]
@@ -1282,3 +1288,171 @@ class HelpScreen:
         self.screen.blit(hint_surf, hint_surf.get_rect(
             center=(SCREEN_WIDTH // 2, panel_y + panel_h - 22)
         ))
+
+
+class SettingsMenu:
+    """Tela de Configurações — liga/desliga o Modo GOD."""
+
+    def __init__(self, screen):
+        self.screen = screen
+        self.clock_ticks = 0
+
+        self.font_title  = pygame.font.Font(None, 90)
+        self.font_label  = pygame.font.Font(None, 40)
+        self.font_info   = pygame.font.Font(None, 26)
+        self.font_button = pygame.font.Font(None, 36)
+
+        try:
+            self.bg_image = pygame.transform.scale(
+                pygame.image.load(BG_MENU_PATH).convert(),
+                (SCREEN_WIDTH, SCREEN_HEIGHT)
+            )
+        except FileNotFoundError:
+            self.bg_image = None
+
+        btn_w, btn_h = 320, 56
+        cx = SCREEN_WIDTH // 2 - btn_w // 2
+        self.btn_toggle = Button(cx, SCREEN_HEIGHT // 2 - 70, btn_w, btn_h,
+                                 "Modo GOD: DESATIVADO", self.font_button)
+        self.btn_back = Button(SCREEN_WIDTH // 2 - 110, SCREEN_HEIGHT - 104,
+                               220, 48, "<- Voltar", self.font_button)
+
+        self.info_lines = [
+            "Modo GOD: personagem invencivel e com todos os poderes.",
+            "Durante o jogo, pressione 1, 2 ou 3 para trocar de fase.",
+        ]
+
+        self.particles = [self._new_particle(random.randint(0, SCREEN_HEIGHT))
+                          for _ in range(50)]
+        self._particle_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        self._glow_line = self._build_glow_line(480, (100, 200, 140))
+        self.fade_alpha = 0
+
+    # ── helpers ──────────────────────────────────────────────────────────
+    def _new_particle(self, start_y=None):
+        return {
+            "x":     random.uniform(0, SCREEN_WIDTH),
+            "y":     start_y if start_y is not None else SCREEN_HEIGHT + 5,
+            "speed": random.uniform(0.3, 1.1),
+            "size":  random.uniform(1.5, 3.5),
+            "alpha": random.randint(80, 220),
+            "phase": random.uniform(0, math.pi * 2),
+            "color": random.choice([
+                (140, 220, 160), (180, 255, 200),
+                (100, 200, 230), (255, 240, 140),
+            ]),
+        }
+
+    def _draw_particles(self):
+        self._particle_surf.fill((0, 0, 0, 0))
+        t = self.clock_ticks * 0.015
+        for p in self.particles:
+            p["y"] -= p["speed"]
+            p["x"] += math.sin(t + p["phase"]) * 0.5
+            if p["y"] < -10:
+                p.update(self._new_particle())
+            r, g, b = p["color"]
+            pygame.draw.circle(self._particle_surf, (r, g, b, 30),
+                               (int(p["x"]), int(p["y"])), int(p["size"] * 2.8))
+            pygame.draw.circle(self._particle_surf, (r, g, b, p["alpha"]),
+                               (int(p["x"]), int(p["y"])), int(p["size"]))
+        self.screen.blit(self._particle_surf, (0, 0))
+
+    def _build_glow_line(self, width, color):
+        surf = pygame.Surface((width, 4), pygame.SRCALPHA)
+        r, g, b = color
+        for i in range(width):
+            fade = math.sin((i / width) * math.pi) ** 1.5
+            surf.set_at((i, 1), (r, g, b, int(fade * 180)))
+            surf.set_at((i, 2), (r, g, b, int(fade * 80)))
+        return surf
+
+    def _draw_glow_line(self, y):
+        x = SCREEN_WIDTH // 2 - self._glow_line.get_width() // 2
+        self.screen.blit(self._glow_line, (x, y))
+
+    def _draw_panel(self, x, y, w, h):
+        panel = pygame.Surface((w, h), pygame.SRCALPHA)
+        panel.fill((8, 20, 14, 210))
+        self.screen.blit(panel, (x, y))
+        pulse = 0.5 + 0.5 * math.sin(self.clock_ticks * 0.04)
+        pygame.draw.rect(self.screen,
+                         (80, 180, 110, int(100 + 80 * pulse)),
+                         (x, y, w, h), 2, border_radius=8)
+
+    # ── ciclo principal ──────────────────────────────────────────────────
+    def update(self):
+        self.clock_ticks += 1
+        self.fade_alpha = min(255, self.fade_alpha + 8)
+
+        mouse_pos = pygame.mouse.get_pos()
+        self.btn_toggle.update(mouse_pos)
+        self.btn_back.update(mouse_pos)
+
+        if CONFIG.god_mode:
+            self.btn_toggle.text = "Modo GOD: ATIVADO"
+            self.btn_toggle.color_normal = (120, 95, 35)
+            self.btn_toggle.color_hover  = (155, 125, 45)
+        else:
+            self.btn_toggle.text = "Modo GOD: DESATIVADO"
+            self.btn_toggle.color_normal = (50, 80, 60)
+            self.btn_toggle.color_hover  = (70, 110, 80)
+
+    def handle_event(self, event):
+        if self.btn_toggle.is_clicked(event):
+            CONFIG.god_mode = not CONFIG.god_mode
+        if self.btn_back.is_clicked(event):
+            return "MENU"
+        return None
+
+    def draw(self):
+        # ── background ──
+        if self.bg_image:
+            self.screen.blit(self.bg_image, (0, 0))
+        else:
+            self.screen.fill((10, 18, 14))
+
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+        overlay.set_alpha(165)
+        overlay.fill((5, 14, 10))
+        self.screen.blit(overlay, (0, 0))
+
+        self._draw_particles()
+
+        # ── painel central ──
+        panel_w, panel_h = 620, 360
+        panel_x = SCREEN_WIDTH  // 2 - panel_w // 2
+        panel_y = SCREEN_HEIGHT // 2 - panel_h // 2 + 20
+        self._draw_panel(panel_x, panel_y, panel_w, panel_h)
+
+        # ── título ──
+        pulse_t = 0.5 + 0.5 * math.sin(self.clock_ticks * 0.03)
+        title_color = (
+            int(160 + 60 * pulse_t),
+            int(220 + 35 * pulse_t),
+            int(170 + 40 * pulse_t),
+        )
+        title_surf = self.font_title.render("Configurações", True, title_color)
+        title_surf.set_alpha(self.fade_alpha)
+        self.screen.blit(title_surf, title_surf.get_rect(
+            center=(SCREEN_WIDTH // 2, panel_y - 52)))
+        self._draw_glow_line(panel_y - 22)
+
+        # ── rótulo da opção ──
+        label_surf = self.font_label.render("Modo GOD", True, (230, 255, 235))
+        label_surf.set_alpha(self.fade_alpha)
+        self.screen.blit(label_surf, label_surf.get_rect(
+            center=(SCREEN_WIDTH // 2, panel_y + 56)))
+
+        # ── botão de alternância ──
+        self.btn_toggle.draw(self.screen)
+
+        # ── linhas de informação ──
+        for i, line in enumerate(self.info_lines):
+            info_surf = self.font_info.render(line, True, (150, 200, 165))
+            info_surf.set_alpha(self.fade_alpha)
+            self.screen.blit(info_surf, info_surf.get_rect(
+                center=(SCREEN_WIDTH // 2, panel_y + 205 + i * 34)))
+
+        # ── botão voltar ──
+        self.btn_back.draw(self.screen)

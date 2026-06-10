@@ -1,5 +1,6 @@
 import pygame
 from settings import STAGE_THRESHOLDS
+from config import CONFIG
 
 PLAYER_IDLE_PATH   = 'assets/player_spritesheet/Idle.png'
 PLAYER_WALK_PATH   = 'assets/player_spritesheet/Walk.png'
@@ -344,6 +345,9 @@ class Player(pygame.sprite.Sprite):
             self.jump_sound.play()
 
     def take_damage(self, amount, knockback_direction=0):
+        # Modo GOD: invencível — ignora todo dano e knockback (Plent, bosses etc.)
+        if CONFIG.god_mode:
+            return
         if not self.is_invincible:
             self.current_health -= amount
             self.is_invincible = True

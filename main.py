@@ -14,8 +14,9 @@ else:
     os.chdir(_BASE_DIR)
 
 from settings import *
-from menu import MainMenu, GameOverMenu, VictoryMenu, CreditsMenu, HistoryMenu, HelpScreen
+from menu import MainMenu, GameOverMenu, VictoryMenu, CreditsMenu, HistoryMenu, HelpScreen, SettingsMenu
 from level import Level
+from config import CONFIG
 from save_system import delete_save, load_game, has_save, save_history
 from cutscene import Cutscene
 from boss_arena import BossArena
@@ -67,6 +68,7 @@ class Game:
         self.victory_menu = VictoryMenu(self.render_surface)
         self.credits_menu = CreditsMenu(self.render_surface)
         self.history_menu = HistoryMenu(self.render_surface)
+        self.settings_menu = None
         self.level = None
 
         # Rastreamento de sessão
@@ -92,6 +94,7 @@ class Game:
         # Dev mode
         self._dev_overlay_visible = True
         self._dev_font = None  # inicializado lazy após pygame.font.init
+        self._god_font = None  # badge do modo GOD, lazy
 
         # Boss fight
         self.boss_arena      = None
@@ -114,6 +117,11 @@ class Game:
             return
 
         if new_state == "MENU" and old_state == "HISTORY":
+            pygame.mixer.music.unpause()
+            return
+
+        if new_state == "MENU" and old_state == "SETTINGS":
+            self.main_menu = MainMenu(self.render_surface)
             pygame.mixer.music.unpause()
             return
 
@@ -195,6 +203,9 @@ class Game:
                 elif action == "HISTORY":
                     self.history_menu = HistoryMenu(self.render_surface)
                     self.change_state("HISTORY")
+                elif action == "SETTINGS":
+                    self.settings_menu = SettingsMenu(self.render_surface)
+                    self.change_state("SETTINGS")
                 elif action == "CREDITS":
                     self.change_state("CREDITS")
                 elif action == "QUIT":
@@ -202,6 +213,9 @@ class Game:
 
             elif self.current_state == "GAMEPLAY":
                 if event.type == pygame.KEYDOWN:
+                    if CONFIG.god_mode and event.key in (pygame.K_1, pygame.K_2, pygame.K_3):
+                        self._dev_load_phase({pygame.K_1: 0, pygame.K_2: 1, pygame.K_3: 2}[event.key])
+                        continue
                     if event.key == pygame.K_ESCAPE:
                         self.change_state("MENU")
                     elif event.key == pygame.K_q:
@@ -221,6 +235,9 @@ class Game:
 
             elif self.current_state == "BOSS_FIGHT":
                 if event.type == pygame.KEYDOWN:
+                    if CONFIG.god_mode and event.key in (pygame.K_1, pygame.K_2, pygame.K_3):
+                        self._dev_load_phase({pygame.K_1: 0, pygame.K_2: 1, pygame.K_3: 2}[event.key])
+                        continue
                     if event.key == pygame.K_ESCAPE:
                         self.change_state("MENU")
                     elif event.key == pygame.K_h or (event.key == pygame.K_F1 and not DEV_MODE):
@@ -279,6 +296,11 @@ class Game:
 
             elif self.current_state == "HISTORY":
                 action = self.history_menu.handle_event(event)
+                if action == "MENU":
+                    self.change_state("MENU")
+
+            elif self.current_state == "SETTINGS":
+                action = self.settings_menu.handle_event(event)
                 if action == "MENU":
                     self.change_state("MENU")
 
@@ -460,6 +482,27 @@ class Game:
             surf = font.render(line, True, color)
             self.render_surface.blit(surf, (ox + pad, oy + pad + i * line_h))
 
+    def _draw_god_badge(self):
+        """Indicador do modo GOD durante o gameplay."""
+        if self._god_font is None:
+            self._god_font = pygame.font.SysFont(None, 26, bold=True)
+
+        badge = self._god_font.render(
+            'MODO GOD  -  [1] [2] [3] trocar de fase', True, (255, 215, 0)
+        )
+        pad_x, pad_y = 14, 7
+        bg = pygame.Surface(
+            (badge.get_width() + pad_x * 2, badge.get_height() + pad_y * 2),
+            pygame.SRCALPHA
+        )
+        bg.fill((0, 0, 0, 165))
+        pygame.draw.rect(bg, (255, 215, 0, 90), bg.get_rect(), 1, border_radius=6)
+
+        bx = SCREEN_WIDTH // 2 - bg.get_width() // 2
+        by = 78 if self.current_state == "BOSS_FIGHT" else 12
+        self.render_surface.blit(bg, (bx, by))
+        self.render_surface.blit(badge, (bx + pad_x, by + pad_y))
+
     # ─────────────────────────────────────────────────────────────────────────
 
     def _toggle_fullscreen(self):
@@ -487,6 +530,8 @@ class Game:
             self.credits_menu.update()
         elif self.current_state == "HISTORY":
             self.history_menu.update()
+        elif self.current_state == "SETTINGS":
+            self.settings_menu.update()
         elif self.current_state in ("CUTSCENE", "CUTSCENE_PROLOG"):
             if DEV_MODE:
                 self._dev_skip_cutscene()
@@ -611,6 +656,8 @@ class Game:
             self.credits_menu.draw()
         elif self.current_state == "HISTORY":
             self.history_menu.draw()
+        elif self.current_state == "SETTINGS":
+            self.settings_menu.draw()
         elif self.current_state in ("CUTSCENE", "CUTSCENE_PROLOG"):
             self.cutscene.draw()
 
@@ -620,6 +667,9 @@ class Game:
 
         if DEV_MODE:
             self._dev_draw_overlay()
+
+        if CONFIG.god_mode and self.current_state in ("GAMEPLAY", "BOSS_FIGHT"):
+            self._draw_god_badge()
 
         # Escala a surface lógica para a janela real (pygame.SCALED faz isso automaticamente
         # ao fazer blit da render_surface para a window)

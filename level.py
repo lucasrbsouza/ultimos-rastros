@@ -6,6 +6,7 @@ from player import Player
 from ui import HUD
 from levels import *
 from save_system import save_game, load_game, delete_save
+from config import CONFIG, apply_god_powers
 
 COLLECT_SOUND_PATH = 'assets/sounds/collect.wav'
 BG_GAME_PATH = 'assets/backgrounds_statics/bg_game.png'
@@ -265,7 +266,7 @@ class Level:
 
     def check_damage(self):
         """Verifica colisão com inimigos e aplica dano."""
-        if DEV_MODE:
+        if DEV_MODE or CONFIG.god_mode:
             return
         player = self.player.sprite
 
@@ -384,7 +385,7 @@ class Level:
 
     def check_death(self):
         """Morre se cair no buraco, tocar água OU se a vida zerar."""
-        if DEV_MODE:
+        if DEV_MODE or CONFIG.god_mode:
             return False
         player = self.player.sprite
         if player.rect.top > SCREEN_HEIGHT or player.current_health <= 0:

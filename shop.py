@@ -80,7 +80,7 @@ class ShopScreen:
         elif pid == 'flecha_fogo':
             p.can_shoot = True
         elif pid == 'voz_floresta':
-            if 'voz_floresta' not in p.active_powers and 'sombra_mata' not in p.active_powers:
+            if 'voz_floresta' not in p.active_powers:
                 p.active_powers.append('voz_floresta')
         elif pid == 'chama_ancestral':
             p.chama_ancestral_charges += 1
@@ -89,11 +89,9 @@ class ShopScreen:
             p.max_health += 2
             p.current_health = min(p.current_health + 2, p.max_health)
         elif pid == 'sombra_mata':
-            # Sombra substitui Voz
-            p.active_powers = [x for x in p.active_powers if x != 'voz_floresta']
+            # Poder X extra — SHIFT alterna entre os poderes ativos comprados
             if 'sombra_mata' not in p.active_powers:
                 p.active_powers.append('sombra_mata')
-            p.active_power_index = 0
 
     # ── eventos ─────────────────────────────────────────────────────────
     def handle_event(self, event):

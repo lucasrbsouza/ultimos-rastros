@@ -135,7 +135,7 @@ SHOP_POWERS = [
     {
         'id':          'sombra_mata',
         'name':        'Sombra da Mata',
-        'description': 'Tecla X — intangível por 3s (substitui Voz)',
+        'description': 'Tecla X — intangível por 3s (SHIFT alterna)',
         'cost':        15,
         'once':        True,
     },

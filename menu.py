@@ -1191,6 +1191,7 @@ class HelpScreen:
         ("W / Espaço",   "Pular"),
         ("Z",            "Disparar Fire Arrow"),
         ("X",            "Usar poder ativo"),
+        ("SHIFT",        "Alternar entre poderes (X)"),
         ("Q",            "Ver poderes disponíveis"),
         ("ESC",          "Pausar / voltar ao menu"),
         ("F1 / H",       "Abrir / fechar esta tela"),

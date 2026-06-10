@@ -143,14 +143,38 @@ class Level:
             player.memories       = save_data.get('memories', 0)
             player.current_health = save_data.get('health', player.max_health)
 
-            # Restaura posição do jogador se existir no save
+            # Restaura posição do jogador e reposiciona a câmera no ponto salvo
             if 'player_x' in save_data and 'player_y' in save_data:
-                player.rect.x = save_data['player_x']
+                map_x = save_data['player_x']
                 player.rect.y = save_data['player_y']
+
+                # Desloca o mundo p/ trazer o jogador ao centro da tela.
+                # Sem rolar para antes do início da fase (offset <= 0).
+                anchor = SCREEN_WIDTH // 2
+                initial_offset = min(0, anchor - map_x)
+                self.total_world_offset = initial_offset
+                player.rect.x = map_x + initial_offset
+                if initial_offset:
+                    self._apply_world_offset(initial_offset)
+                    self.parallax.update(initial_offset)
 
         for enemy in self.enemies:
             enemy.player_ref = self.player.sprite
             enemy.enemies_ref = self.enemies
+
+        if CONFIG.god_mode and self.player.sprite:
+            apply_god_powers(self.player.sprite)
+
+    def _apply_world_offset(self, dx):
+        """Desloca todos os sprites do mundo de uma vez — usado ao recarregar
+        um save para reposicionar a câmera no ponto onde o jogador parou.
+        Espelha exatamente o que .update(world_shift) faz a cada frame."""
+        groups = [self.tiles, self.water_tiles, self.memories, self.enemies,
+                  self.goal, self.objects, self.ladders, self.keys, self.doors,
+                  self.hearts]
+        for group in groups:
+            for sprite in group.sprites():
+                sprite.rect.x += dx
 
     def scroll_x(self):
         player = self.player.sprite

@@ -29,10 +29,16 @@ class ParallaxBackground:
     def draw(self, surface):
         for i, img in enumerate(self.images):
             factor = self.scroll_factors[i]
-            
+
+            # Camada estática (céu): um único blit
+            if factor == 0.0:
+                surface.blit(img, (0, 0))
+                continue
+
             # O módulo (%) cria o efeito infinito limitando o valor à largura da tela
             x_offset = (self.scroll_x * factor) % self.screen_width
-            
-            # Desenha a imagem duas vezes para preencher os espaços em branco do loop
+
             surface.blit(img, (x_offset, 0))
-            surface.blit(img, (x_offset - self.screen_width, 0))
+            # 2º blit só quando há lacuna à esquerda p/ preencher (evita blit fora da tela)
+            if x_offset != 0:
+                surface.blit(img, (x_offset - self.screen_width, 0))

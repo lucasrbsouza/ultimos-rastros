@@ -50,6 +50,11 @@ class BossArena:
         self.hud      = HUD(surface)
         self.parallax = ParallaxBackground(SCREEN_WIDTH, SCREEN_HEIGHT)
 
+        # Tiles na tela neste frame (colisões) + overlay escuro pré-alocado
+        self._active_tiles = []
+        self._dark_overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        self._dark_overlay.fill((20, 0, 30, 60))
+
         try:
             self.collect_sound = pygame.mixer.Sound('assets/sounds/collect.wav')
             self.collect_sound.set_volume(0.6)
@@ -140,7 +145,7 @@ class BossArena:
         p = self.player.sprite
         p.apply_gravity()
         p.on_ground = False
-        for tile in self.tiles.sprites():
+        for tile in self._active_tiles:
             if tile.rect.colliderect(p.rect):
                 if p.direction.y > 0:
                     p.rect.bottom  = tile.rect.top
@@ -152,10 +157,15 @@ class BossArena:
                     p.direction.y = 0
 
     def enemy_collision(self):
+        cull_l = -TILE_SIZE * 2
+        cull_r = SCREEN_WIDTH + TILE_SIZE * 2
         for enemy in list(self.enemies):
             if not enemy._has_gravity:
                 continue
-            for tile in self.tiles.sprites():
+            # Fora da tela: congela (sem tiles ativos embaixo cairia e morreria)
+            if enemy.rect.right < cull_l or enemy.rect.left > cull_r:
+                continue
+            for tile in self._active_tiles:
                 if tile.rect.colliderect(enemy.rect):
                     if enemy.direction == 1:
                         enemy.rect.right = tile.rect.left
@@ -163,7 +173,7 @@ class BossArena:
                         enemy.rect.left  = tile.rect.right
             enemy.apply_gravity()
             enemy.on_ground = False
-            for tile in self.tiles.sprites():
+            for tile in self._active_tiles:
                 if tile.rect.colliderect(enemy.rect):
                     if enemy.velocity_y > 0:
                         enemy.rect.bottom = tile.rect.top
@@ -297,15 +307,20 @@ class BossArena:
         self.parallax.update(self.world_shift)
         self.parallax.draw(self.display_surface)
 
-        # Overlay escuro para dar clima de boss fight
-        dark = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
-        dark.fill((20, 0, 30, 60))
-        self.display_surface.blit(dark, (0, 0))
+        # Overlay escuro (clima de boss) — surface reutilizada
+        self.display_surface.blit(self._dark_overlay, (0, 0))
 
         self.total_world_offset += self.world_shift
 
-        self.tiles.update(self.world_shift)
-        self.tiles.draw(self.display_surface)
+        # Só desloca tiles quando a câmera rola; colisões usam só os da tela
+        if self.world_shift:
+            self.tiles.update(self.world_shift)
+        cull_l = -TILE_SIZE * 2
+        cull_r = SCREEN_WIDTH + TILE_SIZE * 2
+        self._active_tiles = [t for t in self.tiles.sprites()
+                              if t.rect.right >= cull_l and t.rect.left <= cull_r]
+        for t in self._active_tiles:
+            self.display_surface.blit(t.image, t.rect)
 
         self.enemies.update(self.world_shift)
         self.enemy_collision()

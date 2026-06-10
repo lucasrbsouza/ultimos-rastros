@@ -39,6 +39,9 @@ class Level:
         # acumulador de deslocamento total do mundo
         self.total_world_offset = 0
 
+        # Tiles na tela neste frame (preenchido em run()) — usado nas colisões
+        self._active_tiles = []
+
         # Posições (tuplas) das memórias já coletadas — carregadas do save ou vazias
         if save_data and 'collected_positions' in save_data:
             self.collected_positions = set(
@@ -209,7 +212,7 @@ class Level:
         self.player.sprite.apply_gravity()
         self.player.sprite.on_ground = False
 
-        for sprite in self.tiles.sprites():
+        for sprite in self._active_tiles:
             if sprite.rect.colliderect(self.player.sprite.rect):
                 
                 if self.player.sprite.direction.y > 0:
@@ -224,12 +227,19 @@ class Level:
 
     def enemy_collision(self):
         """Gravidade + colisão horizontal e vertical dos inimigos com tiles."""
+        cull_l = -TILE_SIZE * 2
+        cull_r = SCREEN_WIDTH + TILE_SIZE * 2
         for enemy in list(self.enemies):
             if not enemy._has_gravity:
                 continue
+            # Inimigos fora da tela ficam congelados: sem tiles ativos embaixo
+            # cairiam no vazio e morreriam (kill por rect.top > SCREEN_HEIGHT)
+            # antes mesmo de aparecerem. Ativam ao chegar perto da câmera.
+            if enemy.rect.right < cull_l or enemy.rect.left > cull_r:
+                continue
 
             # Colisão horizontal (empurra pra fora de tiles)
-            for tile in self.tiles.sprites():
+            for tile in self._active_tiles:
                 if tile.rect.colliderect(enemy.rect):
                     if enemy.direction == 1:
                         enemy.rect.right = tile.rect.left
@@ -239,7 +249,7 @@ class Level:
             # Gravidade + colisão vertical
             enemy.apply_gravity()
             enemy.on_ground = False
-            for tile in self.tiles.sprites():
+            for tile in self._active_tiles:
                 if tile.rect.colliderect(enemy.rect):
                     if enemy.velocity_y > 0:
                         enemy.rect.bottom = tile.rect.top
@@ -439,8 +449,17 @@ class Level:
         # ── CORREÇÃO: acumula o deslocamento total ──
         self.total_world_offset += self.world_shift
 
-        self.tiles.update(self.world_shift)
-        self.draw_visible(self.tiles)
+        # Só desloca os tiles quando a câmera realmente rola (mid-screen = 0).
+        if self.world_shift:
+            self.tiles.update(self.world_shift)
+        # Subconjunto de tiles na tela (+2 de margem) reusado em TODAS as
+        # colisões do frame — evita varrer milhares de tiles na fase 3 (lag).
+        cull_l = -TILE_SIZE * 2
+        cull_r = SCREEN_WIDTH + TILE_SIZE * 2
+        self._active_tiles = [t for t in self.tiles.sprites()
+                              if t.rect.right >= cull_l and t.rect.left <= cull_r]
+        for t in self._active_tiles:
+            self.display_surface.blit(t.image, t.rect)
 
         self.water_tiles.update(self.world_shift)
         self.draw_visible(self.water_tiles)

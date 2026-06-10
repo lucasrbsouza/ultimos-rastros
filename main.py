@@ -134,8 +134,22 @@ class Game:
             pygame.mixer.music.unpause()
             return
 
-        # Mantém a música ao entrar nos Créditos / Histórico / Cutscene / Shop
-        if new_state in ("CREDITS", "HISTORY", "CUTSCENE", "CUTSCENE_PROLOG", "SHOP"):
+        # Vindo do prólogo de abertura: a música da Fase 1 já está tocando, não reinicia
+        if new_state == "GAMEPLAY" and old_state == "CUTSCENE_PROLOG":
+            return
+
+        # Início do jogo: o prólogo já entra com a música da Fase 1 (encerra a do menu)
+        if new_state == "CUTSCENE_PROLOG":
+            pygame.mixer.music.stop()
+            try:
+                pygame.mixer.music.load(PHASE_BGM_PATHS[0])
+                pygame.mixer.music.play(-1)
+            except pygame.error:
+                print("Aviso: Música da Fase 1 não encontrada na pasta assets.")
+            return
+
+        # Mantém a música ao entrar nos Créditos / Histórico / Cutscene / Shop / Config
+        if new_state in ("CREDITS", "HISTORY", "CUTSCENE", "SHOP", "SETTINGS"):
             pygame.mixer.music.unpause()
             return
 

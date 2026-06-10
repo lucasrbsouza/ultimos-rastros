@@ -123,13 +123,13 @@ class BossArena:
             player.current_speed = 0
         else:
             self.world_shift = 0
-            if not player.is_invincible:
-                player.current_speed = player.walk_speed
+            # current_speed é controlado por update_run() (anda/corre);
+            # não sobrescrever aqui senão a corrida nunca acelera.
 
     def horizontal_movement_collision(self):
         player = self.player.sprite
         player.rect.x += player.direction.x * player.current_speed
-        for tile in self.tiles.sprites():
+        for tile in self._active_tiles:
             if tile.rect.colliderect(player.rect):
                 if player.direction.x < 0:
                     player.rect.left = tile.rect.right

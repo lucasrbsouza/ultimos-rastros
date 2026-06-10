@@ -54,6 +54,10 @@ class Player(pygame.sprite.Sprite):
         self._double_tap_window = 300  # ms entre os dois taps
         self.is_running = False
 
+        # Intensidade visual da corrida (0..1) para o feedback do mapa.
+        # Independe de current_speed, que é zerado nas margens da tela.
+        self.run_anim_intensity = 0.0
+
         # Velocidade atual — usada para acelerar gradualmente
         self.current_speed = 5      # começa na velocidade de caminhada
         self.walk_speed = 5         # velocidade ao andar
@@ -109,6 +113,7 @@ class Player(pygame.sprite.Sprite):
         # Poderes ativos (X): lista de ids comprados, SHIFT cicla
         self.active_powers = []       # ex: ['voz_floresta'], ['sombra_mata']
         self.active_power_index = 0
+        self.power_switch_feedback_time = 0  # ms do último SHIFT (banner do HUD)
 
         try:
             self.jump_sound = pygame.mixer.Sound(JUMP_SOUND_PATH)
@@ -273,6 +278,7 @@ class Player(pygame.sprite.Sprite):
             if event.key == pygame.K_LSHIFT or event.key == pygame.K_RSHIFT:
                 if self.active_powers:
                     self.active_power_index = (self.active_power_index + 1) % len(self.active_powers)
+                    self.power_switch_feedback_time = now
 
             if event.key in (pygame.K_RIGHT, pygame.K_d, pygame.K_LEFT, pygame.K_a):
                 mesma_direita = (event.key in (pygame.K_RIGHT, pygame.K_d) and
@@ -388,9 +394,11 @@ class Player(pygame.sprite.Sprite):
         if self.is_running and self.direction.x != 0:
             # Acelera progressivamente até run_speed
             self.current_speed = min(self.current_speed + 0.4, self.run_speed)
+            self.run_anim_intensity = min(self.run_anim_intensity + 0.08, 1.0)
         else:
             # Desacelera progressivamente até walk_speed
             self.current_speed = max(self.current_speed - 0.4, self.walk_speed)
+            self.run_anim_intensity = max(self.run_anim_intensity - 0.12, 0.0)
 
     def update_jump_timers(self):
         """Gerencia coyote time, jump buffer e executa pulo quando apropriado."""

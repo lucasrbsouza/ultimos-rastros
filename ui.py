@@ -39,7 +39,12 @@ class Button:
 class HUD:
     def __init__(self, surface):
         self.display_surface = surface
-        self.font = pygame.font.Font(None, 36)
+        # Fontes cacheadas — evita recriar Font a cada frame (input lag)
+        self.font        = pygame.font.Font(None, 36)
+        self.font_key    = pygame.font.Font(None, 28)
+        self.font_cd     = pygame.font.Font(None, 22)
+        self.font_hint   = pygame.font.Font(None, 24)
+        self.font_switch = pygame.font.Font(None, 30)
         
     def show_health(self, current, maximum):
         """Desenha a barra de vida no canto superior esquerdo."""
@@ -66,7 +71,7 @@ class HUD:
         self.display_surface.blit(stage_surf, stage_surf.get_rect(topleft=(20, 78)))
 
         if has_key:
-            key_surf = pygame.font.Font(None, 28).render('[CHAVE]', True, (255, 215, 0))
+            key_surf = self.font_key.render('[CHAVE]', True, (255, 215, 0))
             self.display_surface.blit(key_surf, key_surf.get_rect(topright=(SCREEN_WIDTH - 20, 50)))
 
     def show_score(self, score):
@@ -114,7 +119,7 @@ class HUD:
             label = f'CD: {short_name}'
             label_color = (180, 120, 40)
 
-        label_surf = pygame.font.Font(None, 22).render(label, True, label_color)
+        label_surf = self.font_cd.render(label, True, label_color)
         self.display_surface.blit(label_surf, (bar_x + bar_w + 8, bar_y - 2))
 
     def show_hints(self, player):
@@ -129,6 +134,90 @@ class HUD:
         hints.append('[H] Ajuda')
 
         text = '   '.join(hints)
-        hint_surf = pygame.font.Font(None, 24).render(text, True, (180, 180, 180))
+        hint_surf = self.font_hint.render(text, True, (180, 180, 180))
         rect = hint_surf.get_rect(midbottom=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 8))
         self.display_surface.blit(hint_surf, rect)
+
+    def show_power_switch(self, player):
+        """Banner transitório ao trocar o poder X com SHIFT — diz qual poder está ativo."""
+        t = getattr(player, 'power_switch_feedback_time', 0)
+        if not t:
+            return
+        elapsed = pygame.time.get_ticks() - t
+        duration = 1500
+        if elapsed > duration:
+            return
+        name = player.get_active_power_name()
+        if not name:
+            return
+
+        # mantém visível e some nos últimos 450ms
+        if elapsed < duration - 450:
+            alpha = 255
+        else:
+            alpha = max(0, int(255 * (duration - elapsed) / 450))
+
+        text = self.font_switch.render(f'Poder X: {name}', True, (210, 180, 255))
+        pad_x, pad_y = 14, 9
+        box_w = text.get_width() + pad_x * 2
+        box_h = text.get_height() + pad_y * 2
+        toast = pygame.Surface((box_w, box_h), pygame.SRCALPHA)
+        toast.fill((28, 14, 48, 220))
+        pygame.draw.rect(toast, (150, 100, 230), toast.get_rect(), 2, border_radius=8)
+        toast.blit(text, (pad_x, pad_y))
+        toast.set_alpha(alpha)
+        # logo abaixo da barra de cooldown do poder (bar_y=108, bar_h=10)
+        self.display_surface.blit(toast, (20, 126))
+
+
+# ── Feedback de corrida no mapa (linhas de velocidade) ──────────────────────
+_STREAK_MAX_LEN = 220
+_streak_line_surf = None   # surface pequena reutilizada por linha
+_vignette_top = None       # banda superior (construída 1x)
+_vignette_bottom = None    # banda inferior (construída 1x)
+
+
+def draw_run_streaks(surface, player):
+    """Linhas de velocidade + vinheta nas bordas enquanto corre.
+    Usa run_anim_intensity (ramp por is_running) — NÃO current_speed, que é
+    zerado nas margens. Desenho barato: blits pequenos + 2 bandas cacheadas,
+    sem surface fullscreen com alpha por frame (evitava travar o jogo ao correr)."""
+    ratio = getattr(player, 'run_anim_intensity', 0.0)
+    if ratio <= 0.05:
+        return
+    ratio = min(ratio, 1.0)
+
+    global _streak_line_surf, _vignette_top, _vignette_bottom
+    if _streak_line_surf is None:
+        _streak_line_surf = pygame.Surface((_STREAK_MAX_LEN, 3), pygame.SRCALPHA)
+
+    ticks = pygame.time.get_ticks()
+    moving_right = player.direction.x > 0
+    ls = _streak_line_surf
+    for i in range(12):
+        y = (i * 53 + 31) % SCREEN_HEIGHT
+        length = int((60 + (i * 37) % 120) * (0.4 + 0.6 * ratio))
+        length = max(8, min(length, _STREAK_MAX_LEN))
+        speed_px = 22 + (i % 5) * 8
+        x = (ticks * speed_px // 16 + i * 97) % (SCREEN_WIDTH + length)
+        sx = (SCREEN_WIDTH - x) if moving_right else (x - length)
+        a = min(int(60 * ratio) + (i % 3) * 12, 130)
+        ls.fill((0, 0, 0, 0))
+        pygame.draw.line(ls, (205, 255, 215, a), (0, 1), (length, 1), 2)
+        surface.blit(ls, (sx, y), (0, 0, length, 3))
+
+    # vinheta nas bordas — bandas construídas 1x, só ajusta alpha por frame
+    if _vignette_top is None:
+        band = max(SCREEN_HEIGHT // 8, 1)
+        _vignette_top = pygame.Surface((SCREEN_WIDTH, band), pygame.SRCALPHA)
+        _vignette_bottom = pygame.Surface((SCREEN_WIDTH, band), pygame.SRCALPHA)
+        for j in range(band):
+            pygame.draw.line(_vignette_top, (8, 16, 10, int(150 * (1 - j / band))),
+                             (0, j), (SCREEN_WIDTH, j))
+            pygame.draw.line(_vignette_bottom, (8, 16, 10, int(150 * (j / band))),
+                             (0, j), (SCREEN_WIDTH, j))
+    band_h = _vignette_top.get_height()
+    _vignette_top.set_alpha(int(200 * ratio))
+    _vignette_bottom.set_alpha(int(200 * ratio))
+    surface.blit(_vignette_top, (0, 0))
+    surface.blit(_vignette_bottom, (0, SCREEN_HEIGHT - band_h))

@@ -2,7 +2,7 @@ import pygame
 from settings import *
 from sprites import Tile, Dirt, Enemy, FireArrow, CloudPoison, ENEMY_CONFIGS
 from player import Player
-from ui import HUD
+from ui import HUD, draw_run_streaks
 from background import ParallaxBackground
 from config import CONFIG, apply_god_powers
 
@@ -341,6 +341,9 @@ class BossArena:
             flash.fill((80, 40, 120, 30))
             self.display_surface.blit(flash, (0, 0))
 
+        # Feedback de corrida no mapa
+        draw_run_streaks(self.display_surface, player)
+
         self.hud.show_health(player.current_health, player.max_health)
         self.hud.show_memories(player.memories, player.stage, player.has_key)
         self.hud.show_power_cooldown(
@@ -350,6 +353,7 @@ class BossArena:
         )
         self.hud.show_score(player.score)
         self.hud.show_hints(player)
+        self.hud.show_power_switch(player)
 
         self._draw_boss_hud()
 

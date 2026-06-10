@@ -3,7 +3,7 @@ from background import ParallaxBackground
 from settings import *
 from sprites import Tile, Memory, Enemy, Goal, Dirt, Water, StaticObject, FireArrow, CloudPoison, Ladder, Key, LockedDoor, Heart
 from player import Player
-from ui import HUD
+from ui import HUD, draw_run_streaks
 from levels import *
 from save_system import save_game, load_game, delete_save
 from config import CONFIG, apply_god_powers
@@ -508,6 +508,9 @@ class Level:
             flash_surf.fill((80, 40, 120, 30))
             self.display_surface.blit(flash_surf, (0, 0))
 
+        # Feedback de corrida no mapa
+        draw_run_streaks(self.display_surface, player)
+
         self.hud.show_health(player.current_health, player.max_health)
         self.hud.show_memories(player.memories, player.stage, player.has_key)
         self.hud.show_power_cooldown(
@@ -517,7 +520,8 @@ class Level:
         )
         self.hud.show_score(player.score)
         self.hud.show_hints(player)
-        
+        self.hud.show_power_switch(player)
+
         if self.check_death():
             return "GAMEOVER"
 
